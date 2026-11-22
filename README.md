@@ -41,7 +41,7 @@ samples/                  Beispiel-PDF im PEPZeit-Stil zum Testen
 ## Setup
 
 ### 1. Supabase-Projekt & Tabellen
-1. Auf [supabase.com](https://supabase.com) ein Projekt anlegen (Region EU, z. B. Frankfurt).
+1. Auf [supabase.com](https://supabase.com) ein Projekt anlegen (Region EU, z. B. Frankfurt). Der kostenlose Plan reicht für eine Filiale. Er hat aber keine automatischen Backups, deshalb regelmäßig exportieren.
 2. **Database → Extensions:** `pg_cron` aktivieren.
 3. **SQL Editor:** nacheinander `supabase/migrations/001_schema.sql`, `002_auto_close_cron.sql`, `003_remove_from_plan.sql`, `004_hr_import.sql` und `005_store_lead_no_import.sql` ausführen.
    - Damit sind Tabellen, Rechte (RLS), Realtime und der Cron-Job `pausenplaner-auto-close` angelegt. Der Job läuft alle 5 Min. und schließt um die eingestellte Uhrzeit (Europe/Berlin) ab.
@@ -81,7 +81,7 @@ npm run build      # Produktionsbuild nach dist/
 Zum Ausprobieren `samples/pepzeit-beispiel-2026-11-23.pdf` im PDF-Import hochladen.
 
 ### 5. Deployen & als PWA installieren
-- `dist/` auf einen HTTPS-Host legen, z. B. Vercel, Netlify, Cloudflare Pages oder Supabase Storage mit CDN. Build-Befehl `npm run build`, Ausgabeordner `dist`. Die Env-Variablen dort ebenfalls setzen.
+- `dist/` auf einen HTTPS-Host legen. Kostenlos und für gewerbliche Nutzung erlaubt: **Cloudflare Pages** oder **Netlify**. Vercel ist im Gratis-Plan nur für nicht-kommerzielle Nutzung zugelassen. Build-Befehl `npm run build`, Ausgabeordner `dist`. Die Env-Variablen dort ebenfalls setzen.
 - Ohne HTTPS gibt es keinen Service Worker. `localhost` ist die Ausnahme.
 - **Tablet (Android/Chrome):** Seite öffnen → Menü → „App installieren“.
 - **iPad/iPhone (Safari):** Teilen → „Zum Home-Bildschirm“.
