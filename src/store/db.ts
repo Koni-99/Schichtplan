@@ -51,12 +51,20 @@ export const useDB = create<DataState>(() => ({
 
 // ------------------------------------------------------------------ Persistenz (IndexedDB)
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
+function saveNow() {
+  clearTimeout(saveTimer);
+  saveTimer = undefined;
+  const { hydrated: _h, ...rest } = useDB.getState();
+  idbSet(STORAGE_KEY, rest).catch((e) => console.error('IndexedDB-Speichern fehlgeschlagen', e));
+}
 function scheduleSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    const { hydrated: _h, ...rest } = useDB.getState();
-    idbSet(STORAGE_KEY, rest).catch((e) => console.error('IndexedDB-Speichern fehlgeschlagen', e));
-  }, 250);
+  saveTimer = setTimeout(saveNow, 100);
+}
+// Beim Schließen/Wegwechseln sofort sichern (Tablet gesperrt, App beendet)
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => saveTimer && saveNow());
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && saveTimer && saveNow());
 }
 
 export async function hydrate() {

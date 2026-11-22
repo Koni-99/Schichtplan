@@ -23,7 +23,9 @@ export function TodayView({ onGoImport }: { onGoImport?: () => void }) {
 
   const openPlans = useMemo(() => Object.values(plans).filter((p) => !p.deleted_at && (p.status === 'open' || p.plan_date === today)).sort((a, b) => a.plan_date.localeCompare(b.plan_date)), [plans, today]);
   const [selected, setSelected] = useState<string | null>(null);
-  const defaultPlan = openPlans.find((p) => p.plan_date === today) ?? openPlans.filter((p) => p.status === 'open').at(-1);
+  // heute, sonst der nächste anstehende Tag, sonst der letzte offene
+  const openOnly = openPlans.filter((p) => p.status === 'open');
+  const defaultPlan = openPlans.find((p) => p.plan_date === today) ?? openOnly.find((p) => p.plan_date > today) ?? openOnly.at(-1);
   const planId = selected && plans[selected] && !plans[selected].deleted_at ? selected : defaultPlan?.id;
 
   const { plan, shifts: allShifts, pauses, pausesByShift, settings, issues } = usePlanData(planId, now);
@@ -67,7 +69,7 @@ export function TodayView({ onGoImport }: { onGoImport?: () => void }) {
           <Badge tone="amber">Auto-Abschluss um {fmtMin(settings.auto_close_time)} (in {minutesToAuto} Min.)</Badge>
         )}
         {openPlans.length > 1 && (
-          <div className="ml-auto flex gap-1">
+          <div className="ml-auto flex flex-wrap gap-1">
             {openPlans.map((p) => (
               <button key={p.id} onClick={() => setSelected(p.id)} className={`min-h-10 rounded-lg px-3 text-sm font-semibold ${p.id === plan.id ? 'bg-brand-700 text-white' : 'bg-white text-stone-700 ring-1 ring-stone-300'}`}>
                 {fmtDate(p.plan_date, { weekday: 'short', day: '2-digit', month: '2-digit' })}

@@ -44,7 +44,9 @@ export default function App() {
     const tick = () => autoCloseDuePlans();
     tick();
     const t = setInterval(tick, 30000);
-    return () => clearInterval(t);
+    const onVis = () => document.visibilityState === 'visible' && tick();
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
   }, [hydrated, role]);
 
   useEffect(() => {

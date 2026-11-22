@@ -8,7 +8,7 @@ Installierbare Web-App (PWA) zur digitalen Pausenplanung und -dokumentation. Ers
 
 | Bereich | Inhalt |
 |---|---|
-| **PDF-Import** | PEPZeit-Tagesplan hochladen → Datum, Namen, Beginn/Ende werden erkannt → editierbare Vorschau → Plan + automatische Pausenverteilung. Warnt, wenn der Vortag noch offen ist (direkt abschließen möglich). |
+| **PDF-Import** | PEPZeit-Wochen- oder Tagesplan hochladen (Wochentabelle, Abschnitt pro Tag oder Liste) → Vorschau pro Tag; abgeschlossene und laufende Tage bleiben unverändert, nur Tage ohne Plan werden angelegt. Einzel-Tag: PDF hochladen → Datum, Namen, Beginn/Ende werden erkannt → editierbare Vorschau → Plan + automatische Pausenverteilung. Warnt, wenn der Vortag noch offen ist (direkt abschließen möglich). |
 | **Pausenregeln** | Standard 2 × 30 Min., Sondermodell (z. B. 2 × 15 / 1 × 30), feste Uhrzeiten, keine Pause. Kurzschicht < 6 Std. ohne Pause (einstellbar). Max. 4 gleichzeitig (einstellbar). Abstände 1,5 Std. / 1,5 Std. / 1 Std. (einstellbar). |
 | **Auto-Planung** | Setzt zuerst feste Zeiten, lässt „Keine Pause“ aus, verteilt dann flexible Blöcke gleichmäßig. Engste Schichten werden zuerst geplant. Kapazität und Abstände werden eingehalten. Geht das nicht, wird schrittweise gelockert und gewarnt. Laufende und erledigte Pausen bleiben unangetastet. |
 | **Tagesansicht** | Zeitstrahl mit „Jetzt“-Linie, Drag & Drop (5-Min.-Raster), ±15 Min., Uhrzeit wählen. Dazu eine Kompaktliste fürs Handy, der Kasten „Aktuell in Pause (3 / 4)“ mit Countdown, Soft-Warnings in Rot/Orange und „Rückgängig“ für die letzten 3 Aktionen. |
