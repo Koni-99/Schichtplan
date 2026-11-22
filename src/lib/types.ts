@@ -32,6 +32,10 @@ export interface Settings {
   short_shift_block_minutes: number;
   count_unstarted_as_taken: boolean;
   timezone: string;
+  /** Darstellung: Name der Bäckerei/Filiale, Logo (Data-URL), Firmenfarbe */
+  brand_name?: string | null;
+  brand_logo?: string | null;
+  brand_color?: string | null;
   updated_at: string;
 }
 
@@ -123,6 +127,9 @@ export const DEFAULT_SETTINGS: Settings = {
   short_shift_block_minutes: 15,
   count_unstarted_as_taken: false,
   timezone: 'Europe/Berlin',
+  brand_name: '',
+  brand_logo: null,
+  brand_color: '#8a3b12',
   updated_at: new Date(0).toISOString(),
 };
 

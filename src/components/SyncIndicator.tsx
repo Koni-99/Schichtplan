@@ -9,7 +9,7 @@ export function SyncIndicator() {
 
   if (!isCloudMode) {
     return (
-      <span className="hidden items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-xs font-semibold text-stone-600 sm:inline-flex" title="Keine Supabase-Konfiguration: Daten werden nur auf diesem Gerät gespeichert.">
+      <span className="hidden shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-stone-100 px-3 py-1.5 text-xs font-semibold text-stone-600 lg:inline-flex" title="Keine Supabase-Konfiguration: Daten werden nur auf diesem Gerät gespeichert.">
         <HardDrive size={14} /> Lokaler Modus
       </span>
     );
@@ -20,7 +20,7 @@ export function SyncIndicator() {
   return (
     <button
       onClick={() => void flush()}
-      className={`inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${tone}`}
+      className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold ${tone}`}
       title={error ?? (lastSyncAt ? `Zuletzt synchronisiert: ${new Date(lastSyncAt).toLocaleTimeString('de-DE')}` : '')}
     >
       {offline ? <CloudOff size={14} /> : syncing ? <RefreshCw size={14} className="animate-spin" /> : <Cloud size={14} />}

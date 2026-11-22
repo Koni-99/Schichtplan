@@ -21,7 +21,8 @@ interface Props {
 }
 
 const SNAP = 5;
-const ROW_H = 64;
+/** Zeilenhöhe wächst mit der eingestellten Schriftgröße (4rem). */
+const rowHeight = () => Math.round(4 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16));
 
 export function Timeline({ shifts, pausesByShift, issues, isToday, readOnly, now, onOpenShift, onOpenPause }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -46,7 +47,8 @@ export function Timeline({ shifts, pausesByShift, issues, isToday, readOnly, now
     return () => ro.disconnect();
   }, []);
 
-  const nameW = width < 640 ? 120 : 190;
+  const ROW_H = rowHeight();
+  const nameW = width < 640 ? 120 : Math.round(190 * (ROW_H / 64));
   const span = rangeEnd - rangeStart;
   const ppm = Math.max(1.6, (width - nameW - 8) / span); // Pixel pro Minute
   const trackW = span * ppm;
@@ -110,6 +112,7 @@ export function Timeline({ shifts, pausesByShift, issues, isToday, readOnly, now
             ppm={ppm}
             x={x}
             readOnly={readOnly}
+            rowH={ROW_H}
             now={now}
             onOpenShift={onOpenShift}
             onOpenPause={onOpenPause}
@@ -121,8 +124,8 @@ export function Timeline({ shifts, pausesByShift, issues, isToday, readOnly, now
   );
 }
 
-function Row({ shift, pauses, issues, nameW, trackW, ppm, x, readOnly, now, onOpenShift, onOpenPause }: {
-  shift: ShiftEntry; pauses: PauseBlock[]; issues: PlanIssues; nameW: number; trackW: number; ppm: number; x: (m: number) => number; readOnly: boolean; now: Date;
+function Row({ shift, pauses, issues, nameW, trackW, ppm, x, readOnly, rowH: ROW_H, now, onOpenShift, onOpenPause }: {
+  shift: ShiftEntry; pauses: PauseBlock[]; issues: PlanIssues; nameW: number; trackW: number; ppm: number; x: (m: number) => number; readOnly: boolean; rowH: number; now: Date;
   onOpenShift: (id: string) => void; onOpenPause: (id: string) => void;
 }) {
   const win = shiftWindow(shift);
@@ -165,20 +168,20 @@ function Row({ shift, pauses, issues, nameW, trackW, ppm, x, readOnly, now, onOp
           />
         )}
         {pauses.map((p) => (
-          <PauseBar key={p.id} p={p} x={x} ppm={ppm} issues={issues.byBlock[p.id] ?? []} readOnly={readOnly || notWorking} now={now} onOpen={() => onOpenPause(p.id)} />
+          <PauseBar key={p.id} p={p} x={x} ppm={ppm} rowH={ROW_H} issues={issues.byBlock[p.id] ?? []} readOnly={readOnly || notWorking} now={now} onOpen={() => onOpenPause(p.id)} />
         ))}
       </div>
     </div>
   );
 }
 
-function PauseBar({ p, x, ppm, issues, readOnly, now, onOpen }: { p: PauseBlock; x: (m: number) => number; ppm: number; issues: { severity: string; text: string }[]; readOnly: boolean; now: Date; onOpen: () => void }) {
+function PauseBar({ p, x, ppm, rowH: ROW_H, issues, readOnly, now, onOpen }: { p: PauseBlock; x: (m: number) => number; ppm: number; rowH: number; issues: { severity: string; text: string }[]; readOnly: boolean; now: Date; onOpen: () => void }) {
   const [drag, setDrag] = useState<{ startX: number; delta: number; moved: boolean } | null>(null);
   const draggable = !readOnly && p.status === 'open';
   const span = blockSpan(p, now);
   const deltaMin = drag ? Math.round(drag.delta / ppm / SNAP) * SNAP : 0;
   const start = span.from + deltaMin;
-  const w = Math.max(30, (span.to - span.from) * ppm);
+  const w = Math.max(ROW_H * 0.5, (span.to - span.from) * ppm);
   const err = issues.some((i) => i.severity === 'error');
   const warn = !err && issues.length > 0;
 
@@ -208,7 +211,7 @@ function PauseBar({ p, x, ppm, issues, readOnly, now, onOpen }: { p: PauseBlock;
       onPointerCancel={() => setDrag(null)}
       onClick={draggable ? undefined : onOpen}
       onKeyDown={(e) => e.key === 'Enter' && onOpen()}
-      className={`absolute top-2 z-10 flex select-none flex-col items-center justify-center overflow-hidden rounded-lg border-2 text-[11px] font-bold leading-tight shadow-sm ${pauseClasses(p)} ${err ? '!border-red-600 ring-2 ring-red-500' : warn ? '!border-orange-500 ring-2 ring-orange-400' : ''} ${draggable ? 'cursor-grab touch-none active:cursor-grabbing' : 'cursor-pointer'} ${drag?.moved ? 'z-30 opacity-90 shadow-xl' : ''}`}
+      className={`absolute top-2 z-10 flex select-none flex-col items-center justify-center overflow-hidden rounded-lg border-2 text-[0.7rem] font-bold leading-tight shadow-sm ${pauseClasses(p)} ${err ? '!border-red-600 ring-2 ring-red-500' : warn ? '!border-orange-500 ring-2 ring-orange-400' : ''} ${draggable ? 'cursor-grab touch-none active:cursor-grabbing' : 'cursor-pointer'} ${drag?.moved ? 'z-30 opacity-90 shadow-xl' : ''}`}
       style={{ left: x(start), width: w, height: ROW_H - 16 }}
       title={[`Block ${p.block_no}: ${fmtMin(start)} · ${p.planned_duration_min} Min.`, ...issues.map((i) => i.text)].join('\n')}
     >

@@ -1,19 +1,44 @@
 @import "tailwindcss";
 
-@theme {
-  --color-brand-50: #fff7ed;
-  --color-brand-100: #ffedd5;
-  --color-brand-200: #fed7aa;
-  --color-brand-500: #c2410c;
-  --color-brand-600: #9a3412;
-  --color-brand-700: #7c2d12;
-  --color-brand-800: #5c210d;
+/*
+ * Firmenfarbe: --brand wird zur Laufzeit aus den Einstellungen gesetzt (Darstellung).
+ * Alle Abstufungen werden daraus gemischt, die App passt sich also jeder Farbe an.
+ * Neutrale Töne sind warm (Mehl, Teig, Kruste) statt kühlgrau.
+ */
+:root {
+  --brand: #8a3b12;
 }
+
+@theme inline {
+  --color-brand-50: color-mix(in oklab, var(--brand) 7%, #fffdf9);
+  --color-brand-100: color-mix(in oklab, var(--brand) 14%, #fffdf9);
+  --color-brand-200: color-mix(in oklab, var(--brand) 28%, #fffdf9);
+  --color-brand-500: color-mix(in oklab, var(--brand) 82%, white);
+  --color-brand-600: color-mix(in oklab, var(--brand) 92%, white);
+  --color-brand-700: var(--brand);
+  --color-brand-800: color-mix(in oklab, var(--brand) 78%, black);
+}
+
+@theme {
+  /* warme Neutraltöne */
+  --color-stone-50: #faf6f0;
+  --color-stone-100: #f3ece2;
+  --color-stone-200: #e7dccd;
+  --color-stone-300: #d4c5b2;
+  --font-sans: "Nunito Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+}
+
+/* Thekenansicht: größere Schrift und Bedienelemente (alles in rem skaliert mit) */
+html[data-size="gross"] { font-size: 112.5%; }
+html[data-size="sehr-gross"] { font-size: 125%; }
 
 html, body, #root { height: 100%; }
 body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+h1, h2, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
 button, [role="button"] { touch-action: manipulation; user-select: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .stripes { background-image: repeating-linear-gradient(45deg, rgba(0,0,0,.12) 0 6px, transparent 6px 12px); }
 @keyframes pulse-ring { 0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,.7);} 50% { box-shadow: 0 0 0 6px rgba(245,158,11,0);} }
 .pulse-ring { animation: pulse-ring 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .pulse-ring { animation: none; } }

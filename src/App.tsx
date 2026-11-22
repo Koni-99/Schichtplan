@@ -16,6 +16,8 @@ import { ArchiveView } from './features/archive/ArchiveView';
 import { SettingsView } from './features/settings/SettingsView';
 import { WeekView } from './features/week/WeekView';
 import { useUnreadCount } from './features/archive/useArchive';
+import { appName, BrandLogo, SIZE_LABEL, useApplyBranding, useSizeMode } from './lib/branding';
+import { Type } from 'lucide-react';
 
 type View = 'today' | 'week' | 'import' | 'employees' | 'archive' | 'settings';
 
@@ -36,6 +38,9 @@ export default function App() {
   const [view, setView] = useState<View>('today');
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const unread = useUnreadCount();
+  const brandName = useDB((s) => s.settings.brand_name);
+  const [sizeMode, cycleSize] = useSizeMode();
+  useApplyBranding();
 
   useEffect(() => {
     void hydrate().then(() => initAuth()).then(() => startSync());
@@ -67,12 +72,21 @@ export default function App() {
     <div className="flex min-h-full flex-col bg-stone-50 text-stone-900">
       <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur">
         <div className="flex items-center gap-3 px-3 py-2 sm:px-5">
-          <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="h-9 w-9" />
-          <div className="mr-auto leading-tight">
-            <div className="font-bold">Pausenplaner</div>
-            <div className="text-xs text-stone-500">{ROLE_LABEL[role]}{displayName ? ` · ${displayName}` : ''}</div>
+          <BrandLogo className="h-10 w-10" />
+          <div className="mr-auto min-w-0 leading-tight">
+            <div className="truncate font-display text-lg font-bold" title={appName(brandName)}>{appName(brandName)}</div>
+            <div className="truncate text-xs text-stone-500">{ROLE_LABEL[role]}{displayName ? ` · ${displayName}` : ''}</div>
           </div>
           <SyncIndicator />
+          <button
+            onClick={cycleSize}
+            className="flex min-h-12 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 text-sm font-semibold text-stone-600 hover:bg-stone-100"
+            title="Schriftgröße auf diesem Gerät"
+            aria-label={`Schriftgröße: ${SIZE_LABEL[sizeMode]}`}
+          >
+            <Type size={18} />
+            <span className="hidden lg:inline">{SIZE_LABEL[sizeMode]}</span>
+          </button>
           <button
             className="flex h-12 w-12 items-center justify-center rounded-xl text-stone-600 hover:bg-stone-100"
             aria-label="Abmelden"
