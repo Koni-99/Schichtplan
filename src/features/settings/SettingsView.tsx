@@ -172,15 +172,40 @@ export function SettingsView() {
       </section>
 
       <section className="space-y-4 rounded-2xl bg-white p-4 ring-1 ring-stone-200">
-        <h2 className="text-lg font-bold">Standard-Pausenmodell</h2>
-        <div className="flex flex-wrap gap-4">
-          <Field label="Blöcke (reguläre Schicht)"><input {...num('default_block_count', 0, 4)} /></Field>
-          <Field label="Minuten je Block"><input {...num('default_block_minutes', 5, 60)} /></Field>
+        <h2 className="text-lg font-bold">Pausenlänge nach Schichtlänge</h2>
+        <p className="text-sm text-stone-600">Gilt für Mitarbeiter mit Standard-Profil. Sondermodelle, feste Zeiten und „Keine Pause“ aus den Stammdaten haben Vorrang.</p>
+        <div className="space-y-2">
+          {(f.length_rules ?? []).map((r, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <span className="w-10 text-sm">ab</span>
+              <input type="number" step={0.5} min={0} max={14} className={`${inputCls} !w-24 text-center`} value={r.from / 60} onChange={(e) => set({ length_rules: (f.length_rules ?? []).map((x, j) => (j === i ? { ...x, from: Math.round(Number(e.target.value) * 60) } : x)) })} aria-label="Ab Stunden" />
+              <span className="text-sm">Std. Schicht:</span>
+              <input type="number" min={0} max={4} className={`${inputCls} !w-20 text-center`} value={r.count} onChange={(e) => set({ length_rules: (f.length_rules ?? []).map((x, j) => (j === i ? { ...x, count: Math.max(0, Number(e.target.value)) } : x)) })} aria-label="Anzahl Pausen" />
+              <span className="text-sm">×</span>
+              <input type="number" min={5} max={60} step={5} className={`${inputCls} !w-20 text-center`} value={r.minutes} onChange={(e) => set({ length_rules: (f.length_rules ?? []).map((x, j) => (j === i ? { ...x, minutes: Math.max(5, Number(e.target.value)) } : x)) })} aria-label="Minuten je Pause" />
+              <span className="text-sm">Min.{r.count === 0 && ' (keine Pause)'}</span>
+              <Button variant="ghost" icon={<Trash2 size={18} />} onClick={() => set({ length_rules: (f.length_rules ?? []).filter((_, j) => j !== i) })} aria-label="Regel entfernen" />
+            </div>
+          ))}
+          <Button size="sm" onClick={() => set({ length_rules: [...(f.length_rules ?? []), { from: 8 * 60, count: 1, minutes: 30 }].sort((a, b) => a.from - b.from) })}>+ Regel</Button>
+          <span className="block text-xs text-stone-500">Schichtlänge = Anwesenheit inkl. Pause. Beispiel: unter 6 Std. keine, ab 6 Std. 1 × 30, ab 9 Std. 2 × 30.</span>
         </div>
-        <div className="flex flex-wrap gap-4">
-          <Field label="Kurzschicht unter (Stunden)"><input {...hours('short_shift_threshold_min')} /></Field>
-          <Field label="Blöcke bei Kurzschicht"><input {...num('short_shift_block_count', 0, 4)} /></Field>
-          <Field label="Minuten je Block (Kurzschicht)"><input {...num('short_shift_block_minutes', 5, 60)} /></Field>
+      </section>
+
+      <section className="space-y-4 rounded-2xl bg-white p-4 ring-1 ring-stone-200">
+        <h2 className="text-lg font-bold">Feste erste Pause je Schichtbeginn</h2>
+        <div className="space-y-2">
+          {(f.start_rules ?? []).map((r, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <span className="text-sm">Schicht ab</span>
+              <TimeInput value={r.start} onChange={(m) => m != null && set({ start_rules: (f.start_rules ?? []).map((x, j) => (j === i ? { ...x, start: m } : x)) })} aria-label="Schichtbeginn" />
+              <span className="text-sm">→ 1. Pause um</span>
+              <TimeInput value={r.first} onChange={(m) => m != null && set({ start_rules: (f.start_rules ?? []).map((x, j) => (j === i ? { ...x, first: m } : x)) })} aria-label="Erste Pause um" />
+              <Button variant="ghost" icon={<Trash2 size={18} />} onClick={() => set({ start_rules: (f.start_rules ?? []).filter((_, j) => j !== i) })} aria-label="Regel entfernen" />
+            </div>
+          ))}
+          <Button size="sm" onClick={() => set({ start_rules: [...(f.start_rules ?? []), { start: 10 * 60, first: 12 * 60 }] })}>+ Regel</Button>
+          <span className="block text-xs text-stone-500">Die weiteren Pausen dieser Schicht plant die App passend dazu.</span>
         </div>
       </section>
 

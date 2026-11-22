@@ -52,14 +52,14 @@ class Occupancy {
     return mx;
   }
   /** passt ein weiterer Block in [from,to) unter die (zeitabhängige) Kapazitätsgrenze? */
-  fits(from: number, to: number): boolean {
-    for (let m = Math.max(0, Math.floor(from)); m < Math.min(this.occ.length, Math.ceil(to)); m++) if (this.occ[m] + 1 > this.cap[m]) return false;
+  fits(from: number, to: number, k = 1): boolean {
+    for (let m = Math.max(0, Math.floor(from)); m < Math.min(this.occ.length, Math.ceil(to)); m++) if (this.occ[m] + k > this.cap[m]) return false;
     return true;
   }
   /** Auslastung relativ zur Grenze (0 = leer, 1 = voll) */
-  pressure(from: number, to: number): number {
+  pressure(from: number, to: number, k = 1): number {
     let mx = 0;
-    for (let m = Math.max(0, Math.floor(from)); m < Math.min(this.occ.length, Math.ceil(to)); m++) mx = Math.max(mx, (this.occ[m] + 1) / Math.max(1, this.cap[m]));
+    for (let m = Math.max(0, Math.floor(from)); m < Math.min(this.occ.length, Math.ceil(to)); m++) mx = Math.max(mx, (this.occ[m] + k) / Math.max(1, this.cap[m]));
     return mx;
   }
 }
@@ -100,7 +100,7 @@ export function schedulePauses(input: ScheduleInput): ScheduleResult {
     (byShift.get(p.shift_entry_id) ?? byShift.set(p.shift_entry_id, []).get(p.shift_entry_id)!).push(p);
   }
 
-  interface Job { shift: ShiftEntry; win: { start: Minutes; end: Minutes }; slots: Slot[] }
+  interface Job { shift: ShiftEntry; win: { start: Minutes; end: Minutes }; slots: Slot[]; group?: string; weight: number; members: Job[] }
   const jobs: Job[] = [];
 
   for (const shift of shifts) {
@@ -130,6 +130,12 @@ export function schedulePauses(input: ScheduleInput): ScheduleResult {
       }
       return { blockNo: r.blockNo, duration: r.duration, locked: false, isFixed: false, existingId: ex?.id };
     });
+    // Betriebsregel: feste erste Pause je Schichtbeginn (z. B. Schicht ab 10:00 → 12:00)
+    const startRule = cfg.start_rules?.find((r) => r.start === win.start);
+    if (startRule && slots[0] && !slots[0].locked && (emp?.pause_model ?? 'standard') !== 'fixed') {
+      slots[0] = { ...slots[0], locked: true, isFixed: true, start: startRule.first };
+      occ.add(startRule.first, startRule.first + slots[0].duration);
+    }
 
     // überzählige offene Blöcke stornieren
     for (const b of existing) {
@@ -141,7 +147,9 @@ export function schedulePauses(input: ScheduleInput): ScheduleResult {
         occ.add(span.from, span.to);
       }
     }
-    jobs.push({ shift, win, slots });
+    const job: Job = { shift, win, slots, group: emp?.pause_group?.trim() || undefined, weight: 1, members: [] };
+    job.members.push(job);
+    jobs.push(job);
   }
 
   // engste Schichten zuerst (effektives Zeitfenster inkl. "letzte Pause um"), bei Gleichstand früherer Beginn
@@ -149,7 +157,16 @@ export function schedulePauses(input: ScheduleInput): ScheduleResult {
     const lastStart = Math.min(j.win.end - cfg.min_before_end_min, cfg.latest_pause_start != null ? cfg.latest_pause_start + 30 : Infinity);
     return lastStart - (j.win.start + cfg.min_after_start_min);
   };
-  const flexJobs = jobs
+  // Pausenpartner (gleiche Gruppe, gleiche Schicht, gleiche Blöcke) werden gemeinsam geplant
+  const sig = (j: Job) => `${j.group}|${j.win.start}|${j.win.end}|${j.slots.map((s) => (s.locked ? `L${s.start}` : '') + s.duration).join(',')}`;
+  const grouped = new Map<string, Job>();
+  const planJobs: Job[] = [];
+  for (const j of jobs) {
+    if (!j.group || !j.slots.some((s) => !s.locked)) { planJobs.push(j); continue; }
+    const lead = grouped.get(sig(j));
+    if (lead) { lead.members.push(j); lead.weight++; } else { grouped.set(sig(j), j); planJobs.push(j); }
+  }
+  const flexJobs = planJobs
     .filter((j) => j.slots.some((s) => !s.locked))
     .sort((a, b) => effWindow(a) - effWindow(b) || a.win.start - b.win.start);
 
@@ -157,13 +174,13 @@ export function schedulePauses(input: ScheduleInput): ScheduleResult {
   const cands = flexJobs.map((job) => enumerateShift(job.slots, job.win, cfg, LEVELS[0], 80));
   const chosen: (Minutes[] | null)[] = flexJobs.map(() => null);
   let budget = 250000;
-  const fitsAll = (job: Job, times: Minutes[]) => job.slots.every((sl, i) => sl.locked || occ.fits(times[i], times[i] + sl.duration));
-  const apply = (job: Job, times: Minutes[], d: number) => job.slots.forEach((sl, i) => !sl.locked && occ.add(times[i], times[i] + sl.duration, d));
+  const fitsAll = (job: Job, times: Minutes[]) => job.slots.every((sl, i) => sl.locked || occ.fits(times[i], times[i] + sl.duration, job.weight));
+  const apply = (job: Job, times: Minutes[], d: number) => job.slots.forEach((sl, i) => !sl.locked && occ.add(times[i], times[i] + sl.duration, d * job.weight));
   const searchAll = (k: number): boolean => {
     if (k === flexJobs.length) return true;
     const job = flexJobs[k];
     const ranked = cands[k]
-      .map((c) => ({ c, s: c.score + job.slots.reduce((a, sl, i) => a + (sl.locked ? 0 : occ.pressure(c.times[i], c.times[i] + sl.duration) * 25), 0) }))
+      .map((c) => ({ c, s: c.score + job.slots.reduce((a, sl, i) => a + (sl.locked ? 0 : occ.pressure(c.times[i], c.times[i] + sl.duration, job.weight) * 25), 0) }))
       .sort((a, b) => a.s - b.s);
     for (const { c } of ranked) {
       if (--budget < 0) return false;
@@ -179,14 +196,14 @@ export function schedulePauses(input: ScheduleInput): ScheduleResult {
   const globalOk = cands.every((c) => c.length > 0) && searchAll(0);
 
   if (globalOk) {
-    flexJobs.forEach((job, k) => job.slots.forEach((sl, i) => { if (!sl.locked) sl.start = chosen[k]![i]; }));
+    flexJobs.forEach((job, k) => job.members.forEach((m) => m.slots.forEach((sl, i) => { if (!sl.locked) sl.start = chosen[k]![i]; })));
   } else {
     // 2) Fallback: nacheinander planen und bei Bedarf Regeln lockern (mit Warnung)
     for (const job of flexJobs) {
       let placed: Minutes[] | null = null;
       let usedLevel = 0;
       for (let li = 0; li < LEVELS.length && !placed; li++) {
-        placed = placeShift(job.slots, job.win, occ, cfg, LEVELS[li]);
+        placed = placeShift(job.slots, job.win, occ, cfg, LEVELS[li], job.weight);
         usedLevel = li;
       }
       if (!placed) {
@@ -194,11 +211,9 @@ export function schedulePauses(input: ScheduleInput): ScheduleResult {
         usedLevel = 2;
       }
       job.slots.forEach((s, i) => {
-        if (!s.locked) {
-          s.start = placed![i];
-          occ.add(s.start, s.start + s.duration);
-        }
+        if (!s.locked) occ.add(placed![i], placed![i] + s.duration, job.weight);
       });
+      job.members.forEach((m) => m.slots.forEach((s, i) => { if (!s.locked) s.start = placed![i]; }));
       if (usedLevel === 1) result.warnings.push(`${job.shift.employee_name}: Mindestabstände konnten nicht eingehalten werden.`);
       if (usedLevel === 2) result.warnings.push(`${job.shift.employee_name}: Pausen-Kapazität musste überschritten werden.`);
     }
@@ -275,7 +290,7 @@ function enumerateShift(slots: Slot[], win: { start: number; end: number }, cfg:
   return out.sort((a, b) => a.score - b.score).slice(0, limit);
 }
 
-function placeShift(slots: Slot[], win: { start: number; end: number }, occ: Occupancy, cfg: Settings, lv: Level): Minutes[] | null {
+function placeShift(slots: Slot[], win: { start: number; end: number }, occ: Occupancy, cfg: Settings, lv: Level, weight = 1): Minutes[] | null {
   const n = slots.length;
   const chosen: Minutes[] = slots.map((s) => s.start ?? NaN);
   let budget = 50000;
@@ -289,15 +304,15 @@ function placeShift(slots: Slot[], win: { start: number; end: number }, occ: Occ
     if (hi < lo) return false;
     const cands: { t: number; score: number }[] = [];
     for (let t = Math.ceil(lo / lv.step) * lv.step; t <= hi; t += lv.step) {
-      if (lv.capacity && !occ.fits(t, t + s.duration)) continue;
+      if (lv.capacity && !occ.fits(t, t + s.duration, weight)) continue;
       cands.push({ t, score: timeScore(t, ideal, cfg) + occ.max(t, t + s.duration) * 20 });
     }
     cands.sort((a, b) => a.score - b.score);
     for (const c of cands) {
       chosen[i] = c.t;
-      occ.add(c.t, c.t + s.duration); // eigene Blöcke zählen mit
+      occ.add(c.t, c.t + s.duration, weight); // eigene Blöcke zählen mit
       const ok = dfs(i + 1);
-      occ.add(c.t, c.t + s.duration, -1);
+      occ.add(c.t, c.t + s.duration, -weight);
       if (ok) return true;
     }
     return false;

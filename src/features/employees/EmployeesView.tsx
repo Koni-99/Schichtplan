@@ -47,6 +47,7 @@ export function EmployeesView() {
               <div className="text-sm text-stone-500">{profileSummary(e, settings.default_block_count, settings.default_block_minutes)}</div>
             </div>
             <Badge tone={e.pause_model === 'standard' ? 'blue' : e.pause_model === 'fixed' ? 'violet' : e.pause_model === 'none' ? 'stone' : 'amber'}>{PAUSE_MODEL_LABEL[e.pause_model].split(' (')[0]}</Badge>
+            {e.pause_group && <Badge tone="brand">{e.pause_group}</Badge>}
             {!e.active && <Badge>inaktiv</Badge>}
             <Pencil size={16} className="text-stone-400" />
           </button>
@@ -133,6 +134,9 @@ function EmployeeEditor({ initial, onClose }: { initial: Employee; onClose: () =
             <Field label="Dauer je Block (Min.)"><input type="number" min={5} max={60} step={5} className={`${inputCls} !w-28`} value={e.fixed_block_minutes} onChange={(x) => set({ fixed_block_minutes: Math.max(5, +x.target.value) })} /></Field>
           </div>
         )}
+        <Field label="Pausengruppe (optional)" hint="Mitarbeiter mit derselben Gruppe gehen zusammen in Pause, wenn sie die gleiche Schicht haben – z. B. „Öffner“.">
+          <input className={inputCls} value={e.pause_group ?? ''} placeholder="z. B. Öffner" maxLength={30} onChange={(x) => set({ pause_group: x.target.value })} />
+        </Field>
         <label className="flex min-h-12 items-center gap-3">
           <input type="checkbox" className="h-6 w-6" checked={e.active} onChange={(x) => set({ active: x.target.checked })} />
           Aktiv (in Vorschlagslisten anzeigen)

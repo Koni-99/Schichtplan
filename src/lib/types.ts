@@ -24,6 +24,10 @@ export interface Settings {
   capacity_rules?: { from: Minutes; max: number }[] | null;
   /** Pausen beginnen nur in diesem Raster (30 = :00/:30) */
   pause_grid_min?: number | null;
+  /** Pausenlänge nach Schichtlänge (Standardmodell): ab `from` Min. Anwesenheit → count × minutes */
+  length_rules?: { from: Minutes; count: number; minutes: number }[] | null;
+  /** Feste erste Pause je Schichtbeginn, z. B. Schicht ab 09:30 → 1. Pause 11:30 */
+  start_rules?: { start: Minutes; first: Minutes }[] | null;
   auto_close_time: Minutes;
   auto_close_enabled: boolean;
   min_after_start_min: number;
@@ -54,6 +58,8 @@ export interface Employee extends Row {
   custom_block_minutes: number;
   fixed_starts: Minutes[];
   fixed_block_minutes: number;
+  /** Mitarbeiter mit gleicher Gruppe (z. B. „Öffner“) gehen zusammen in Pause */
+  pause_group?: string | null;
   active: boolean;
   created_at: string;
 }
@@ -124,6 +130,15 @@ export const DEFAULT_SETTINGS: Settings = {
   max_concurrent_pauses: 3,
   capacity_rules: [{ from: 14 * 60 + 30, max: 2 }],
   pause_grid_min: 30,
+  length_rules: [
+    { from: 0, count: 0, minutes: 30 },
+    { from: 6 * 60, count: 1, minutes: 30 },
+    { from: 9 * 60, count: 2, minutes: 30 },
+  ],
+  start_rules: [
+    { start: 9 * 60 + 30, first: 11 * 60 + 30 },
+    { start: 10 * 60, first: 12 * 60 },
+  ],
   auto_close_time: 19 * 60 + 30,
   auto_close_enabled: true,
   min_after_start_min: 90,

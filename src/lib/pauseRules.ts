@@ -35,6 +35,11 @@ export function requiredBlocks(emp: Employee | undefined, shiftLength: number, s
       return mk(emp?.custom_block_count ?? 2, emp?.custom_block_minutes ?? 15);
     case 'standard':
     default:
+      if (s.length_rules?.length) {
+        // Pausenlänge nach Schichtlänge, z. B. < 6 Std. keine, ab 6 Std. 1 × 30, ab 9 Std. 2 × 30
+        const rule = [...s.length_rules].sort((a, b) => b.from - a.from).find((r) => shiftLength >= r.from);
+        return rule ? mk(rule.count, rule.minutes) : [];
+      }
       if (shiftLength < s.short_shift_threshold_min) return mk(s.short_shift_block_count, s.short_shift_block_minutes);
       return mk(s.default_block_count, s.default_block_minutes);
   }

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { schedulePauses } from '../scheduler';
 import { validatePlan } from '../validation';
-import { DEFAULT_SETTINGS, type Employee, type PauseBlock, type ShiftEntry } from '../types';
+import { DEFAULT_SETTINGS as BASE, type Employee, type PauseBlock, type ShiftEntry } from '../types';
+
+/** Allgemeine Algorithmus-Tests mit klassischen Regeln (2 × 30 ab 6 Std., keine Startregeln). */
+const DEFAULT_SETTINGS = { ...BASE, length_rules: null, start_rules: null };
 
 const t = (s: string) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
 let n = 0;
