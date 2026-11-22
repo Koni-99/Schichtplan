@@ -181,7 +181,7 @@ export function ImportView({ onDone }: { onDone: () => void }) {
               {filename && <div className="flex items-center gap-1 font-semibold text-stone-800"><FileText size={14} /> {filename}</div>}
               <div>
                 {days.length} Tag{days.length === 1 ? '' : 'e'} erkannt
-                {result && ` · ${result.layout === 'columns' ? 'Wochentabelle' : result.layout === 'sections' ? 'Abschnitte pro Tag' : 'Tagesplan'}`}
+                {result && ` · ${result.layout === 'columns' ? 'Wochentabelle' : result.layout === 'pages' ? 'Eine Seite pro Tag' : result.layout === 'sections' ? 'Abschnitte pro Tag' : 'Tagesplan'}`}
               </div>
             </div>
             <Button variant="ghost" className="ml-auto" onClick={() => { setDays(null); setResult(null); }}>Andere Datei</Button>

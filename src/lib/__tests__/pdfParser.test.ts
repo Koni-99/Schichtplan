@@ -97,3 +97,26 @@ describe('Wochen-PDF', () => {
     expect(r.days).toEqual([{ date: '2026-11-25', shifts: [{ name: 'Weber, Clara', start: 480, end: 990 }] }]);
   });
 });
+
+import { parsePdfPages } from '../pdfParser';
+
+describe('7 Seiten – ein Tag pro Seite', () => {
+  const page = (header: string | null, rows: [string, string][]): PdfItem[] => [
+    { x: 20, y: 800, w: 300, s: 'PEPZeit Tagesplan Filiale Hauptstraße' },
+    ...(header ? [{ x: 20, y: 785, w: 200, s: header }] : []),
+    ...rows.flatMap(([n, t], i) => [{ x: 40, y: 760 - i * 12, w: 80, s: n }, { x: 200, y: 760 - i * 12, w: 60, s: t }]),
+    { x: 20, y: 40, w: 200, s: 'Gedruckt am 20.11.2026 10:15' },
+  ];
+  it('ordnet jede Seite einem Tag zu und leitet fehlende Daten ab', () => {
+    const pages = [
+      page('Montag, 23.11.2026', [['Müller, Anna', '05:30 - 14:00'], ['Schmidt, Bernd', '06:00 - 14:30']]),
+      page('Dienstag, 24.11.2026', [['Müller, Anna', '11:00 - 19:30']]),
+      page(null, [['Yilmaz, Ayse', '06:00 - 12:00']]), // Datum unleserlich
+      page('Donnerstag, 26.11.2026', [['Weber, Clara', '07:00 - 15:30']]),
+    ];
+    const r = parsePdfPages(pages);
+    expect(r.layout).toBe('pages');
+    expect(r.days.map((d) => [d.date, d.shifts.length])).toEqual([['2026-11-23', 2], ['2026-11-24', 1], ['2026-11-25', 1], ['2026-11-26', 1]]);
+    expect(r.warnings.some((w) => w.includes('Seite 3') && w.includes('25.11.2026'))).toBe(true);
+  });
+});

@@ -12,7 +12,7 @@ export interface ParsedDay {
   shifts: ParsedShift[];
 }
 
-export type PdfLayout = 'single' | 'sections' | 'columns';
+export type PdfLayout = 'single' | 'sections' | 'columns' | 'pages';
 
 /** Ergebnis für ein ganzes PDF (Tages- oder Wochenplan). */
 export interface WeekParseResult {
@@ -361,9 +361,9 @@ function parseSections(lines: PdfLine[], ctx: { year: number; monday: Date | nul
 }
 
 /** Komplettes PDF auswerten: erkennt Wochen-Tabelle, Tagesabschnitte, Listen oder Einzeltag. */
-export function parseWeekLines(lines: PdfLine[]): WeekParseResult {
+export function parseWeekLines(lines: PdfLine[], ctxOverride?: { year: number; monday: Date | null }): WeekParseResult {
   const warnings: string[] = [];
-  const ctx = documentContext(lines);
+  const ctx = ctxOverride ?? documentContext(lines);
   const text = lines.map((l) => l.text);
 
   const colDays = parseColumns(lines, ctx, warnings);
@@ -412,6 +412,51 @@ export async function extractPdfItems(file: File): Promise<PdfItem[][]> {
   return pages;
 }
 
+const addDays = (isoDate: string, n: number) => {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  return dateToIso(new Date(y, m - 1, d + n));
+};
+
+/**
+ * PDF mit mehreren Seiten: Ist jede Seite genau ein Tag (typischer PEPZeit-Wochenausdruck
+ * mit 7 Seiten), wird seitenweise ausgewertet. Fehlt auf einer Seite das Datum, wird es aus
+ * der Nachbarseite abgeleitet (Vortag + 1). Sonst Auswertung des Gesamtdokuments.
+ */
+export function parsePdfPages(pages: PdfItem[][]): WeekParseResult {
+  const allLines = itemsToLines(pages);
+  const whole = parseWeekLines(allLines);
+  if (pages.length < 2 || whole.layout === 'columns') return whole;
+
+  const ctx = documentContext(allLines);
+  const perPage: { page: number; date: string | null; shifts: ParsedShift[]; warnings: string[] }[] = [];
+  for (let i = 0; i < pages.length; i++) {
+    const r = parseWeekLines(itemsToLines([pages[i]]), ctx);
+    const shifts = [...r.days.flatMap((d) => d.shifts), ...r.undated];
+    if (shifts.length === 0) continue; // Deckblatt o. Ä.
+    if (r.days.length > 1) return whole; // Seite enthält mehrere Tage → kein Seiten-Layout
+    perPage.push({ page: i + 1, date: r.days[0]?.date ?? null, shifts: r.days[0]?.shifts ?? r.undated, warnings: r.warnings.filter((w) => !w.startsWith('Keine Schichten')) });
+  }
+  if (perPage.length < 2 || perPage.every((p) => !p.date)) return whole;
+
+  const warnings: string[] = [];
+  // fehlende Daten aus Nachbarseiten ableiten
+  for (let pass = 0; pass < perPage.length; pass++) {
+    perPage.forEach((p, i) => {
+      if (p.date) return;
+      if (perPage[i - 1]?.date) p.date = addDays(perPage[i - 1].date!, 1);
+      else if (perPage[i + 1]?.date) p.date = addDays(perPage[i + 1].date!, -1);
+      if (p.date) warnings.push(`Seite ${p.page}: kein Datum gefunden – als ${p.date.split('-').reverse().join('.')} angenommen, bitte prüfen.`);
+    });
+  }
+  const byDate = new Map<string, ParsedShift[]>();
+  for (const p of perPage) {
+    warnings.push(...p.warnings);
+    (byDate.get(p.date!) ?? byDate.set(p.date!, []).get(p.date!)!).push(...p.shifts);
+  }
+  const days = [...byDate.entries()].map(([date, shifts]) => ({ date, shifts: mergeShifts(shifts) })).sort((a, b) => a.date.localeCompare(b.date));
+  return { layout: 'pages', days, undated: [], lines: whole.lines, warnings: [...new Set(warnings)] };
+}
+
 export async function parsePepzeitPdf(file: File): Promise<WeekParseResult> {
-  return parseWeekLines(itemsToLines(await extractPdfItems(file)));
+  return parsePdfPages(await extractPdfItems(file));
 }
