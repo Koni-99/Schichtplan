@@ -7,6 +7,10 @@ import { fmtDate, fmtMin, todayISO } from '../../lib/time';
 import { Badge, Button, toast, useNow } from '../../components/ui';
 import { usePlanData } from './usePlanData';
 import { capacityAt } from '../../lib/pauseRules';
+import { isCloudMode } from '../../lib/supabase';
+import { loadTestPlan } from '../../store/demo';
+import { confirmDialog } from '../../components/ui';
+import { FlaskConical } from 'lucide-react';
 import { PauseNowBar } from './PauseNowBar';
 import { Timeline } from './Timeline';
 import { CompactList } from './CompactList';
@@ -42,6 +46,16 @@ export function TodayView({ onGoImport, selectedId, onSelect }: { onGoImport?: (
   const [closing, setClosing] = useState(false);
 
   const setModeP = (m: Mode) => { setMode(m); localStorage.setItem(MODE_KEY, m); };
+  const testPlan = async () => {
+    const hasToday = allPlans.some((p) => p.plan_date === today);
+    if (hasToday && !(await confirmDialog('Der heutige Plan wird durch den Testplan (MA 1–14) ersetzt. Außerdem werden die Pausenregeln auf die Vorgaben der Filiale gesetzt.', { confirmLabel: 'Testplan laden' }))) return;
+    const id = loadTestPlan();
+    setSelected(id);
+    toast('Testplan MA 1–14 für heute geladen – Pausen wurden automatisch geplant', 'success');
+  };
+  const testButton = !isCloudMode && (
+    <Button icon={<FlaskConical size={18} />} onClick={testPlan} title="Nur im Demo-/lokalen Modus">Testplan MA 1–14 laden</Button>
+  );
 
   if (!plan) {
     return (
@@ -50,6 +64,7 @@ export function TodayView({ onGoImport, selectedId, onSelect }: { onGoImport?: (
         <h2 className="text-2xl font-bold">Kein Tagesplan für heute</h2>
         <p className="text-stone-600">{onGoImport ? 'Laden Sie den PEPZeit-Wochenplan als PDF hoch, um die Tagespläne zu erstellen.' : 'Die Personalleitung muss zuerst den PEPZeit-Wochenplan hochladen.'}</p>
         {onGoImport && <Button variant="primary" size="lg" icon={<FileUp />} onClick={onGoImport}>PEPZeit-PDF importieren</Button>}
+        {testButton}
       </div>
     );
   }
@@ -118,7 +133,8 @@ export function TodayView({ onGoImport, selectedId, onSelect }: { onGoImport?: (
             </Button>
           </>
         )}
-        <div className="ml-auto flex rounded-xl bg-stone-200 p-1">
+        {testButton && <div className="ml-auto">{testButton}</div>}
+        <div className={`${testButton ? '' : 'ml-auto '}flex rounded-xl bg-stone-200 p-1`}>
           <button onClick={() => setModeP('timeline')} className={`flex min-h-10 items-center gap-1 rounded-lg px-3 text-sm font-semibold ${mode === 'timeline' ? 'bg-white shadow' : 'text-stone-600'}`}>
             <SquareGanttChart size={16} /> Zeitstrahl
           </button>
