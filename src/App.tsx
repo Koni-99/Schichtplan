@@ -6,7 +6,7 @@ import { startSync } from './store/sync';
 import { autoCloseDuePlans } from './store/actions';
 import { isCloudMode } from './lib/supabase';
 import type { Role } from './lib/types';
-import { Toasts, confirmDialog } from './components/ui';
+import { ConfirmHost, Toasts, confirmDialog } from './components/ui';
 import { SyncIndicator } from './components/SyncIndicator';
 import { Login } from './features/auth/Login';
 import { TodayView } from './features/today/TodayView';
@@ -59,10 +59,10 @@ export default function App() {
   const nav = NAV.filter((n) => n.roles.includes(role));
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-full flex-col bg-stone-50 text-stone-900">
       <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur">
         <div className="flex items-center gap-3 px-3 py-2 sm:px-5">
-          <img src="/icon.svg" alt="" className="h-9 w-9" />
+          <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="h-9 w-9" />
           <div className="mr-auto leading-tight">
             <div className="font-bold">Pausenplaner</div>
             <div className="text-xs text-stone-500">{ROLE_LABEL[role]}{displayName ? ` · ${displayName}` : ''}</div>
@@ -72,7 +72,7 @@ export default function App() {
             className="flex h-12 w-12 items-center justify-center rounded-xl text-stone-600 hover:bg-stone-100"
             aria-label="Abmelden"
             title={isCloudMode ? 'Abmelden' : 'Rolle wechseln'}
-            onClick={() => confirmDialog(isCloudMode ? 'Wirklich abmelden? Auf dem Filial-Tablet bleibt die Anmeldung sonst dauerhaft bestehen.' : 'Rolle wechseln?') && signOut()}
+            onClick={async () => (await confirmDialog(isCloudMode ? 'Wirklich abmelden? Auf dem Filial-Tablet bleibt die Anmeldung sonst dauerhaft bestehen.' : 'Rolle wechseln? Die Daten bleiben auf diesem Gerät erhalten.', { confirmLabel: isCloudMode ? 'Abmelden' : 'Rolle wechseln' })) && signOut()}
           >
             <LogOut size={20} />
           </button>
@@ -101,6 +101,7 @@ export default function App() {
         {view === 'settings' && <SettingsView />}
       </main>
       <Toasts />
+      <ConfirmHost />
     </div>
   );
 }

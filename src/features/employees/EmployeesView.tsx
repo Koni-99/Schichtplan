@@ -5,7 +5,7 @@ import { deleteEmployee, findEmployeeByName, newEmployee, saveEmployee } from '.
 import type { Employee, PauseModel } from '../../lib/types';
 import { PAUSE_MODEL_LABEL } from '../../lib/types';
 import { fmtMin } from '../../lib/time';
-import { Badge, Button, Field, inputCls, Modal, TimeInput, toast } from '../../components/ui';
+import { Badge, Button, confirmDialog, Field, inputCls, Modal, TimeInput, toast } from '../../components/ui';
 
 export function profileSummary(e: Employee, defCount: number, defMin: number): string {
   switch (e.pause_model) {
@@ -81,7 +81,7 @@ function EmployeeEditor({ initial, onClose }: { initial: Employee; onClose: () =
       footer={
         <>
           {!isNew && (
-            <Button variant="ghost" className="mr-auto text-red-700" icon={<Trash2 size={18} />} onClick={() => { if (window.confirm(`${e.name} aus den Stammdaten löschen? Bestehende Tagespläne bleiben erhalten.`)) { deleteEmployee(e.id); onClose(); } }}>
+            <Button variant="ghost" className="mr-auto text-red-700" icon={<Trash2 size={18} />} onClick={async () => { if (await confirmDialog(`${e.name} aus den Stammdaten löschen? Bestehende Tagespläne bleiben erhalten.`, { confirmLabel: 'Löschen', danger: true })) { deleteEmployee(e.id); onClose(); } }}>
               Löschen
             </Button>
           )}

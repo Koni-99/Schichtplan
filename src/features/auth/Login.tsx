@@ -19,10 +19,10 @@ export function Login() {
   ];
 
   return (
-    <div className="flex min-h-full items-center justify-center p-4">
+    <div className="flex min-h-full items-center justify-center bg-stone-50 p-4 text-stone-900">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-6 flex items-center gap-3">
-          <img src="/icon.svg" className="h-12 w-12" alt="" />
+          <img src={`${import.meta.env.BASE_URL}icon.svg`} className="h-12 w-12" alt="" />
           <div>
             <h1 className="text-2xl font-bold">Pausenplaner</h1>
             <p className="text-sm text-stone-500">Digitale Pausenplanung für die Filiale</p>

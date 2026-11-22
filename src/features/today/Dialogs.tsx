@@ -11,7 +11,7 @@ import type { PlanIssues } from '../../lib/validation';
 import { fmtCountdown, fmtMin, minutesBetween, nowMinutes } from '../../lib/time';
 import { shiftWindow } from '../../lib/pauseRules';
 import { computeActualPause, diffPlan, planHasDeviations } from '../../lib/diff';
-import { Badge, Button, Field, inputCls, Modal, TimeInput, toast, useNow } from '../../components/ui';
+import { Badge, Button, confirmDialog, Field, inputCls, Modal, TimeInput, toast, useNow } from '../../components/ui';
 import { PAUSE_STATUS_LABEL } from './styles';
 
 const roundNow = (step = 5) => Math.round(nowMinutes() / step) * step;
@@ -238,7 +238,7 @@ export function ShiftPanel({ id, issues, readOnly, onClose, onOpenPause }: { id:
         </Field>
 
         {!readOnly && shift.is_manual && (
-          <Button variant="ghost" className="text-red-700" icon={<Trash2 size={18} />} onClick={() => { if (window.confirm(`${shift.employee_name} aus dem Plan entfernen?`)) { removeShift(shift.id); onClose(); } }}>
+          <Button variant="ghost" className="text-red-700" icon={<Trash2 size={18} />} onClick={async () => { if (await confirmDialog(`${shift.employee_name} aus dem Plan entfernen?`, { confirmLabel: 'Entfernen', danger: true })) { removeShift(shift.id); onClose(); } }}>
             Springer entfernen
           </Button>
         )}

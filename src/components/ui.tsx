@@ -132,6 +132,33 @@ export function useNow(intervalMs = 1000): Date {
   return now;
 }
 
-export function confirmDialog(text: string): boolean {
-  return window.confirm(text);
+// ------------------------------------------------------------------ Bestätigungsdialog (statt window.confirm)
+interface Ask { text: string; confirmLabel: string; danger: boolean; resolve: (ok: boolean) => void }
+const useAsk = create<{ ask: Ask | null }>(() => ({ ask: null }));
+
+export function confirmDialog(text: string, opts: { confirmLabel?: string; danger?: boolean } = {}): Promise<boolean> {
+  return new Promise((resolve) => useAsk.setState({ ask: { text, confirmLabel: opts.confirmLabel ?? 'OK', danger: opts.danger ?? false, resolve } }));
+}
+
+export function ConfirmHost() {
+  const ask = useAsk((s) => s.ask);
+  const done = (ok: boolean) => {
+    ask?.resolve(ok);
+    useAsk.setState({ ask: null });
+  };
+  return (
+    <Modal
+      open={!!ask}
+      onClose={() => done(false)}
+      title="Bitte bestätigen"
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => done(false)}>Abbrechen</Button>
+          <Button variant={ask?.danger ? 'danger' : 'primary'} onClick={() => done(true)}>{ask?.confirmLabel}</Button>
+        </>
+      }
+    >
+      <p>{ask?.text}</p>
+    </Modal>
+  );
 }

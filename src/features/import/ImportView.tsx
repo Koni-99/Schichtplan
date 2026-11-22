@@ -98,6 +98,17 @@ export function ImportView({ onDone }: { onDone: () => void }) {
             <span className="text-stone-500">Täglicher PEPZeit-Schichtplan · Datum, Namen und Schichtzeiten werden automatisch erkannt</span>
           </button>
           <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); e.target.value = ''; }} />
+          <Button
+            icon={<FileText size={18} />}
+            disabled={busy}
+            onClick={async () => {
+              const res = await fetch(`${import.meta.env.BASE_URL}pepzeit-beispiel.pdf`);
+              const blob = await res.blob();
+              void onFile(new File([blob], 'pepzeit-beispiel.pdf', { type: 'application/pdf' }));
+            }}
+          >
+            Beispiel-PDF ausprobieren
+          </Button>
           <Button variant="ghost" icon={<Plus size={18} />} onClick={() => { setResult(null); setFilename(null); setRows([{ key: uid(), name: '', start: null, end: null }]); }}>
             Ohne PDF manuell erfassen
           </Button>
