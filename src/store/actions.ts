@@ -74,6 +74,8 @@ export function createPlanFromImport(date: string, rows: ImportRow[], filename: 
   const existing = planByDate(date, state);
   if (existing) {
     if (!replaceExisting) throw new Error('Für dieses Datum existiert bereits ein Plan.');
+    if (existing.status === 'closed') throw new Error('Abgeschlossene Tage können nicht ersetzt werden.');
+    if (existing.plan_date === todayISO()) throw new Error('Der heutige Tagesplan kann nicht per Import ersetzt werden – bitte direkt im Tagesplan ändern.');
     changes.push({ table: 'daily_plans', row: { ...existing, deleted_at: ts } });
     planShifts(existing.id, state).forEach((row) => changes.push({ table: 'shift_entries', row: { ...row, deleted_at: ts } }));
     planPauses(existing.id, state).forEach((row) => changes.push({ table: 'pause_blocks', row: { ...row, deleted_at: ts } }));

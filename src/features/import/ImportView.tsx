@@ -96,7 +96,8 @@ export function ImportView({ onDone }: { onDone: () => void }) {
   const willImport = (d: EditDay) => {
     const st = stateOf(d);
     if (!d.include || st === 'closed' || st === 'invalid' || st === 'past') return false;
-    if ((st === 'open' || st === 'today-open') && !d.replace) return false;
+    if (st === 'today-open') return false; // laufender Tag: nur manuell im Tagesplan änderbar
+    if (st === 'open' && !d.replace) return false;
     return true;
   };
   const selected = days?.filter(willImport) ?? [];
@@ -151,7 +152,7 @@ export function ImportView({ onDone }: { onDone: () => void }) {
           <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); e.target.value = ''; }} />
           <div className="flex items-start gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">
             <ShieldCheck size={18} className="mt-0.5 shrink-0" />
-            <span>Bereits abgeschlossene Tage und der laufende Tag werden beim Import <b>nicht verändert</b>. Neu angelegt werden nur Tage, für die es noch keinen Plan gibt.</span>
+            <span>Abgeschlossene Tage und der <b>heutige Tag</b> werden beim Import <b>nie verändert</b> – Änderungen am heutigen Tag bitte direkt im Tagesplan vornehmen. Neu angelegt werden nur Tage, für die es noch keinen Plan gibt.</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {SAMPLES.map((s) => (
@@ -205,16 +206,16 @@ export function ImportView({ onDone }: { onDone: () => void }) {
                       <input
                         type="checkbox"
                         className="h-6 w-6"
-                        disabled={st === 'closed' || st === 'past'}
-                        checked={st === 'open' || st === 'today-open' ? d.replace : d.include && st !== 'closed' && st !== 'past'}
-                        onChange={(e) => (st === 'open' || st === 'today-open' ? updateDay(d.key, { replace: e.target.checked, include: true }) : updateDay(d.key, { include: e.target.checked }))}
+                        disabled={st === 'closed' || st === 'past' || st === 'today-open'}
+                        checked={st === 'open' ? d.replace : d.include && st !== 'closed' && st !== 'past' && st !== 'today-open'}
+                        onChange={(e) => (st === 'open' ? updateDay(d.key, { replace: e.target.checked, include: true }) : updateDay(d.key, { include: e.target.checked }))}
                         aria-label={`${d.date} importieren`}
                       />
                       <span className="w-36 font-semibold">{d.date ? fmtDate(d.date, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Ohne Datum'}</span>
                     </label>
                     <span className="flex-1 text-sm">
                       {st === 'closed' && <Badge tone="stone"><Lock size={12} /> Abgeschlossen – bleibt unverändert</Badge>}
-                      {st === 'today-open' && (d.replace ? <Badge tone="red">Heutiger Plan wird ersetzt!</Badge> : <Badge tone="green"><ShieldCheck size={12} /> Heute laufend – bleibt unverändert</Badge>)}
+                      {st === 'today-open' && <Badge tone="green"><ShieldCheck size={12} /> Heute laufend – bleibt unverändert (Änderungen direkt im Tagesplan)</Badge>}
                       {st === 'open' && (d.replace ? <Badge tone="red">Bestehender Plan wird ersetzt</Badge> : <Badge tone="green">Plan vorhanden – bleibt unverändert</Badge>)}
                       {st === 'new' && (d.include ? <Badge tone="blue">Wird neu angelegt</Badge> : <Badge>Wird übersprungen</Badge>)}
                       {st === 'past' && <Badge>Vergangen – wird nicht angelegt</Badge>}
@@ -232,7 +233,7 @@ export function ImportView({ onDone }: { onDone: () => void }) {
           {/* Vorschau des gewählten Tages */}
           <DayEditor
             day={day}
-            locked={stateOf(day) === 'closed'}
+            locked={stateOf(day) === 'closed' || stateOf(day) === 'today-open'}
             knownKeys={knownKeys}
             dups={dupsOf(day)}
             rowErrors={rowErrors}
@@ -291,7 +292,7 @@ function DayEditor({ day, locked, knownKeys, dups, rowErrors, onDate, onRow, onR
       <div className="flex flex-wrap items-center gap-3 border-b border-stone-200 bg-stone-50 px-4 py-2">
         <span className="text-sm font-semibold text-stone-600">Vorschau & Korrektur für</span>
         <input type="date" className={`${inputCls} !w-auto`} value={day.date} disabled={locked} onChange={(e) => onDate(e.target.value)} aria-label="Datum" />
-        {locked && <span className="text-sm text-stone-500">Abgeschlossener Tag – nur Ansicht</span>}
+        {locked && <span className="text-sm text-stone-500">Nur Ansicht – dieser Tag wird nicht verändert</span>}
       </div>
       <div className="divide-y divide-stone-100">
         {day.rows.map((r) => {
