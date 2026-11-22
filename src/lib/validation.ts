@@ -1,4 +1,4 @@
-import { blockSpan, isActiveBlock, requiredPauseMinutes, shiftWindow } from './pauseRules';
+import { blockSpan, isActiveBlock, longestStretch, MAX_STRETCH_MIN, requiredPauseMinutes, shiftWindow } from './pauseRules';
 import type { Employee, PauseBlock, Settings, ShiftEntry } from './types';
 import { fmtMin } from './time';
 
@@ -60,6 +60,12 @@ export function validatePlan(shifts: ShiftEntry[], pauses: PauseBlock[], employe
     const planned = own.reduce((a, p) => a + (p.status === 'done' ? p.actual_duration_min ?? p.planned_duration_min : p.planned_duration_min), 0);
     if (planned < soll) {
       push(res.byShift, shift.id, { severity: 'error', text: `Pausenzeit unter Soll (${planned} / ${soll} Min.)` });
+    }
+    if (win.end - win.start > MAX_STRETCH_MIN) {
+      const st = longestStretch(win, own.map((p) => blockSpan(p, now)));
+      if (st.length > MAX_STRETCH_MIN) {
+        push(res.byShift, shift.id, { severity: 'error', text: `Mehr als 6 Std. am Stück ohne Pause (${fmtMin(st.from)}–${fmtMin(st.to)}, ${Math.floor(st.length / 60)}:${String(st.length % 60).padStart(2, '0')} Std.) – ArbZG § 4` });
+      }
     }
     own.forEach((p, i) => {
       const span = blockSpan(p, now);

@@ -69,8 +69,8 @@ function orderBatches(changes: Change[]): Change[][] {
 async function send(batch: Change[]): Promise<{ error: { message: string; code?: string } | null }> {
   const table = batch[0].table;
   const rows = batch.map((c) => c.row);
-  if (table === 'daily_plans' && useAuth.getState().role === 'personalleitung') {
-    // Personalleitung darf nur aktualisieren (kein INSERT-Recht → kein Upsert)
+  if (table === 'daily_plans' && useAuth.getState().role === 'personalleitung' && rows.every((r) => (r as { status: string }).status === 'closed')) {
+    // Abgeschlossene Pläne: Personalleitung ändert nur den Lese-/Bearbeitet-Status (Update statt Upsert)
     for (const r of rows as unknown as Array<Record<string, unknown>>) {
       const { error } = await supabase!
         .from(table)

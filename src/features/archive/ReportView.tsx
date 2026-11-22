@@ -126,7 +126,7 @@ function DiffRow({ d }: { d: ShiftDiff }) {
       </td>
       <td className="px-3 py-2">
         <div className="flex flex-wrap gap-1">
-          {d.kinds.filter((k) => k !== 'note').map((k) => <Badge key={k} tone={k === 'sick' || k === 'absent' ? 'red' : k === 'removed' ? 'stone' : k === 'manual' ? 'violet' : 'amber'}>{DEVIATION_LABEL[k]}</Badge>)}
+          {d.kinds.filter((k) => k !== 'note').map((k) => <Badge key={k} tone={k === 'sick' || k === 'absent' || k === 'arbzg' ? 'red' : k === 'removed' ? 'stone' : k === 'manual' ? 'violet' : 'amber'}>{DEVIATION_LABEL[k]}</Badge>)}
         </div>
         {removed && (
           <div className="mt-1 text-stone-700">

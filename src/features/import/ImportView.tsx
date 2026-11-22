@@ -3,6 +3,7 @@ import { AlertTriangle, Archive, CheckCircle2, FileText, FileUp, Loader2, Lock, 
 import { parsePepzeitPdf, type WeekParseResult } from '../../lib/pdfParser';
 import { fmtDate, nameKey, todayISO, uid } from '../../lib/time';
 import { useDB } from '../../store/db';
+import { useAuth } from '../../store/auth';
 import { autoCloseDuePlans, closePlan, createPlanFromImport } from '../../store/actions';
 import { Badge, Button, Modal, TimeInput, inputCls, toast } from '../../components/ui';
 import type { DailyPlan } from '../../lib/types';
@@ -29,6 +30,7 @@ export function ImportView({ onDone }: { onDone: () => void }) {
   const employees = useDB((s) => s.employees);
   const plans = useDB((s) => s.plans);
   const today = todayISO();
+  const role = useAuth((s) => s.role);
   const knownKeys = useMemo(() => new Set(Object.values(employees).filter((e) => !e.deleted_at).map((e) => e.name_key)), [employees]);
   const planOn = (date: string) => Object.values(plans).find((p) => p.plan_date === date && !p.deleted_at);
 
@@ -125,6 +127,8 @@ export function ImportView({ onDone }: { onDone: () => void }) {
 
   /** Nur echte Altlasten (offene Pläne vor heute) abfragen – der laufende Tag bleibt unberührt. */
   const start = () => {
+    // Personalleitung: alte offene Tage schließt der automatische Abschluss – keine Rückfrage
+    if (role === 'personalleitung') return doCreate();
     const minDate = selected.map((d) => d.date).sort()[0];
     const old = Object.values(plans).filter((p) => !p.deleted_at && p.status === 'open' && p.plan_date < today && p.plan_date < minDate && !selected.some((d) => d.date === p.plan_date));
     if (old.length) return setStale(old);

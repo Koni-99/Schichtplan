@@ -1,8 +1,9 @@
 import type { DailyPlan, PauseBlock, Settings, ShiftEntry } from './types';
 import { isNotWorking, SHIFT_STATUS_LABEL } from './types';
 import { fmtMin } from './time';
+import { longestStretch, MAX_STRETCH_MIN } from './pauseRules';
 
-export type DeviationKind = 'time' | 'sick' | 'absent' | 'removed' | 'pause' | 'manual' | 'note';
+export type DeviationKind = 'time' | 'sick' | 'absent' | 'removed' | 'pause' | 'arbzg' | 'manual' | 'note';
 
 export interface ShiftDiff {
   shift: ShiftEntry;
@@ -24,6 +25,7 @@ export const DEVIATION_LABEL: Record<DeviationKind, string> = {
   sick: 'Krank',
   absent: 'Nicht erschienen',
   removed: 'Aus Plan entfernt',
+  arbzg: 'Über 6 Std. ohne Pause',
   pause: 'Pausenzeit',
   manual: 'Manuell ergänzt',
   note: 'Notiz',
@@ -70,6 +72,15 @@ export function diffShift(shift: ShiftEntry, blocks: PauseBlock[], cfg: Settings
   if (!notWorking && istPause !== sollPause) {
     kinds.push('pause');
     summary.push(`Pause Soll: ${sollPause} Min. → Ist: ${istPause} Min.`);
+  }
+  // Ist-Prüfung § 4 ArbZG: nur tatsächlich genommene Pausen zählen
+  if (!notWorking && istStart != null && istEnd != null && istEnd - istStart > MAX_STRETCH_MIN) {
+    const taken = own.filter((b) => b.status === 'done').map((b) => ({ from: b.start_min, to: b.start_min + (b.actual_duration_min ?? b.planned_duration_min) }));
+    const st = longestStretch({ start: istStart, end: istEnd }, taken);
+    if (st.length > MAX_STRETCH_MIN) {
+      kinds.push('arbzg');
+      summary.push(`Über 6 Std. ohne Pause: ${fmtMin(st.from)}–${fmtMin(st.to)} (${Math.floor(st.length / 60)}:${String(st.length % 60).padStart(2, '0')} Std.)`);
+    }
   }
   if (shift.note.trim()) { kinds.push('note'); summary.push(`Notiz: ${shift.note.trim()}`); }
 

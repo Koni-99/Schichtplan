@@ -45,13 +45,14 @@ export function TodayView({ onGoImport }: { onGoImport?: () => void }) {
       <div className="mx-auto flex max-w-lg flex-col items-center gap-4 p-8 text-center">
         <CalendarCheck size={56} className="text-stone-300" />
         <h2 className="text-2xl font-bold">Kein Tagesplan für heute</h2>
-        <p className="text-stone-600">{onGoImport ? 'Laden Sie den PEPZeit-Schichtplan als PDF hoch, um den Tagesplan zu erstellen.' : 'Die Filialleitung muss zuerst den PEPZeit-Schichtplan importieren.'}</p>
+        <p className="text-stone-600">{onGoImport ? 'Laden Sie den PEPZeit-Wochenplan als PDF hoch, um die Tagespläne zu erstellen.' : 'Die Personalleitung muss zuerst den PEPZeit-Wochenplan hochladen.'}</p>
         {onGoImport && <Button variant="primary" size="lg" icon={<FileUp />} onClick={onGoImport}>PEPZeit-PDF importieren</Button>}
       </div>
     );
   }
 
-  const readOnly = plan.status === 'closed';
+  // Personalleitung sieht Tagespläne nur an – Änderungen macht die Filiale
+  const readOnly = plan.status === 'closed' || role === 'personalleitung';
   const isToday = plan.plan_date === today;
   const planUndo = undo.filter((u) => u.planId === plan.id);
   const errorCount = Object.values(issues.byBlock).flat().filter((i) => i.severity === 'error').length + Object.values(issues.byShift).flat().length;
@@ -63,7 +64,8 @@ export function TodayView({ onGoImport }: { onGoImport?: () => void }) {
       {/* Kopf: Datum + Planwahl */}
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-2 text-2xl font-bold">{fmtDate(plan.plan_date, { weekday: 'long', day: '2-digit', month: 'long' })}</h1>
-        {readOnly ? <Badge tone="stone"><Lock size={12} /> {plan.closed_label ?? 'Abgeschlossen'}</Badge> : <Badge tone="green">Offen</Badge>}
+        {plan.status === 'closed' ? <Badge tone="stone"><Lock size={12} /> {plan.closed_label ?? 'Abgeschlossen'}</Badge> : <Badge tone="green">Offen</Badge>}
+        {role === 'personalleitung' && plan.status === 'open' && <Badge tone="blue">Nur Ansicht</Badge>}
         {!isToday && !readOnly && <Badge tone="amber">Nicht heute</Badge>}
         {minutesToAuto !== null && minutesToAuto > 0 && minutesToAuto <= 60 && (
           <Badge tone="amber">Auto-Abschluss um {fmtMin(settings.auto_close_time)} (in {minutesToAuto} Min.)</Badge>

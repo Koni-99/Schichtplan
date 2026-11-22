@@ -68,3 +68,26 @@ describe('schedulePauses', () => {
     expect(v.overCapacity.length).toBeGreaterThan(0);
   });
 });
+
+describe('§ 4 ArbZG – max. 6 Std. am Stück', () => {
+  it('warnt, wenn Pausen so verschoben sind, dass über 6 Std. ohne Pause entstehen', () => {
+    const s = shift('Lang', '06:00', '16:30');
+    const blocks = toBlocks(schedulePauses({ shifts: [s], pauses: [], employees: {}, settings: DEFAULT_SETTINGS }));
+    blocks[0].start_min = t('07:30'); blocks[1].start_min = t('08:30');
+    const v = validatePlan([s], blocks, {}, DEFAULT_SETTINGS);
+    expect(v.byShift[s.id]?.some((i) => i.text.includes('Mehr als 6 Std.'))).toBe(true);
+  });
+  it('Auto-Planung hält die 6-Std.-Grenze auch bei langen Schichten und Engpässen ein', () => {
+    const shifts = Array.from({ length: 16 }, (_, i) => shift(`MA${i}`, '06:00', '19:00'));
+    const cfg = { ...DEFAULT_SETTINGS, default_block_count: 2, default_block_minutes: 30 };
+    const blocks = toBlocks(schedulePauses({ shifts, pauses: [], employees: {}, settings: cfg }));
+    const v = validatePlan(shifts, blocks, {}, cfg);
+    const stretch = Object.values(v.byShift).flat().filter((i) => i.text.includes('Mehr als 6 Std.'));
+    expect(stretch).toEqual([]);
+  });
+  it('Bericht zeigt Verstoß, wenn tatsächlich keine Pause genommen wurde', async () => {
+    const { diffShift } = await import('../diff');
+    const s = { ...shift('Ohne', '06:00', '14:30'), planned_pause_min: 60, actual_pause_min: 0 };
+    expect(diffShift(s, [], DEFAULT_SETTINGS).kinds).toContain('arbzg');
+  });
+});

@@ -1,4 +1,4 @@
-import { blockSpan, isActiveBlock, requiredBlocks, shiftWindow, type BlockRequirement } from './pauseRules';
+import { blockSpan, isActiveBlock, MAX_STRETCH_MIN, MIN_REST_BLOCK_MIN, requiredBlocks, shiftWindow, type BlockRequirement } from './pauseRules';
 import type { Employee, Minutes, PauseBlock, Settings, ShiftEntry } from './types';
 import { fmtMin } from './time';
 
@@ -198,6 +198,11 @@ function placeShift(slots: Slot[], win: { start: number; end: number }, occ: Occ
     if (!lv.spacing) {
       lo = Math.max(win.start, prevEnd ?? win.start);
       hi = Math.min(win.end - s.duration, next?.locked && next.start !== undefined ? next.start - s.duration : Infinity);
+    }
+    // § 4 ArbZG: nie mehr als 6 Std. am Stück ohne Ruhepause (gilt auf allen Stufen)
+    if (win.end - win.start > MAX_STRETCH_MIN && s.duration >= MIN_REST_BLOCK_MIN) {
+      hi = Math.min(hi, (prevEnd ?? win.start) + MAX_STRETCH_MIN);
+      if (i === n - 1) lo = Math.max(lo, win.end - MAX_STRETCH_MIN - s.duration);
     }
     if (hi < lo) return false;
 

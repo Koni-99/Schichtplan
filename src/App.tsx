@@ -19,8 +19,8 @@ import { useUnreadCount } from './features/archive/useArchive';
 type View = 'today' | 'import' | 'employees' | 'archive' | 'settings';
 
 const NAV: { id: View; label: string; icon: typeof Users; roles: Role[] }[] = [
-  { id: 'today', label: 'Tagesplan', icon: CalendarClock, roles: ['filiale', 'filialleitung'] },
-  { id: 'import', label: 'PDF-Import', icon: FileUp, roles: ['filialleitung'] },
+  { id: 'today', label: 'Tagesplan', icon: CalendarClock, roles: ['filiale', 'filialleitung', 'personalleitung'] },
+  { id: 'import', label: 'PDF-Import', icon: FileUp, roles: ['filialleitung', 'personalleitung'] },
   { id: 'employees', label: 'Mitarbeiter', icon: Users, roles: ['filialleitung'] },
   { id: 'archive', label: 'Archiv', icon: Archive, roles: ['personalleitung'] },
   { id: 'settings', label: 'Einstellungen', icon: SettingsIcon, roles: ['filialleitung'] },
@@ -96,7 +96,7 @@ export default function App() {
         )}
       </header>
       <main className="flex-1">
-        {view === 'today' && <TodayView onGoImport={role === 'filialleitung' ? () => setView('import') : undefined} />}
+        {view === 'today' && <TodayView onGoImport={role === 'filialleitung' || role === 'personalleitung' ? () => setView('import') : undefined} />}
         {view === 'import' && <ImportView onDone={() => setView('today')} />}
         {view === 'employees' && <EmployeesView />}
         {view === 'archive' && <ArchiveView />}

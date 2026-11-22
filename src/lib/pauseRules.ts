@@ -46,6 +46,27 @@ export function requiredPauseMinutes(emp: Employee | undefined, s: ShiftEntry, s
   return requiredBlocks(emp, w.end - w.start, settings).reduce((a, b) => a + b.duration, 0);
 }
 
+/** § 4 ArbZG: länger als 6 Std. hintereinander darf nicht ohne Ruhepause gearbeitet werden. */
+export const MAX_STRETCH_MIN = 360;
+/** Nur Pausen ab 15 Min. zählen als Ruhepause (§ 4 Satz 2 ArbZG). */
+export const MIN_REST_BLOCK_MIN = 15;
+
+/** Längster Arbeitsabschnitt ohne Ruhepause innerhalb eines Arbeitszeitfensters. */
+export function longestStretch(win: { start: Minutes; end: Minutes }, pauses: { from: Minutes; to: Minutes }[]): { from: Minutes; to: Minutes; length: number } {
+  const rests = pauses
+    .filter((p) => p.to - p.from >= MIN_REST_BLOCK_MIN)
+    .map((p) => ({ from: Math.max(win.start, p.from), to: Math.min(win.end, p.to) }))
+    .filter((p) => p.to > p.from)
+    .sort((a, b) => a.from - b.from);
+  let best = { from: win.start, to: win.start, length: 0 };
+  let cursor = win.start;
+  for (const r of [...rests, { from: win.end, to: win.end }]) {
+    if (r.from - cursor > best.length) best = { from: cursor, to: r.from, length: r.from - cursor };
+    cursor = Math.max(cursor, r.to);
+  }
+  return best;
+}
+
 /** Dauer, die ein Block die Pausenkapazität belegt. */
 export function blockSpan(b: PauseBlock, now?: Date): { from: Minutes; to: Minutes } {
   if (b.status === 'done' && b.actual_duration_min != null) {
