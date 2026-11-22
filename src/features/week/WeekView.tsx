@@ -107,7 +107,7 @@ export function WeekView({ onOpenDay, onGoImport }: { onOpenDay: (planId: string
                         ) : p.status === 'closed' ? (
                           <Badge tone="stone"><Lock size={10} /> abgeschlossen</Badge>
                         ) : (
-                          <Badge tone={isToday ? 'brand' : 'green'}>{isToday ? 'heute' : 'offen'} · {counts.get(d) ?? 0} MA</Badge>
+                          isToday ? <span className="rounded-full bg-accent-200 px-2.5 py-0.5 text-xs font-semibold text-brand-800">heute · {counts.get(d) ?? 0} MA</span> : <Badge tone="green">offen · {counts.get(d) ?? 0} MA</Badge>
                         )}
                       </button>
                     </th>

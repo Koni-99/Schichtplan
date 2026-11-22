@@ -6,7 +6,8 @@
  * Neutrale Töne sind warm (Mehl, Teig, Kruste) statt kühlgrau.
  */
 :root {
-  --brand: #8a3b12;
+  --brand: #6b4226;   /* Braun */
+  --accent: #e8a90c;  /* Goldgelb */
 }
 
 @theme inline {
@@ -17,6 +18,12 @@
   --color-brand-600: color-mix(in oklab, var(--brand) 92%, white);
   --color-brand-700: var(--brand);
   --color-brand-800: color-mix(in oklab, var(--brand) 78%, black);
+  --color-accent-50: color-mix(in oklab, var(--accent) 10%, #fffdf9);
+  --color-accent-100: color-mix(in oklab, var(--accent) 22%, #fffdf9);
+  --color-accent-200: color-mix(in oklab, var(--accent) 45%, #fffdf9);
+  --color-accent-400: color-mix(in oklab, var(--accent) 85%, white);
+  --color-accent-500: var(--accent);
+  --color-accent-600: color-mix(in oklab, var(--accent) 82%, black);
 }
 
 @theme {
@@ -37,6 +44,7 @@ html, body, #root { height: 100%; }
 body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 h1, h2, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
 button, [role="button"] { touch-action: manipulation; user-select: none; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .stripes { background-image: repeating-linear-gradient(45deg, rgba(0,0,0,.12) 0 6px, transparent 6px 12px); }
 @keyframes pulse-ring { 0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,.7);} 50% { box-shadow: 0 0 0 6px rgba(245,158,11,0);} }

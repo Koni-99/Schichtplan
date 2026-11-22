@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useDB } from '../store/db';
 
 export const BRAND_PRESETS = [
+  { name: 'Braun', color: '#6b4226' },
   { name: 'Kruste', color: '#8a3b12' },
   { name: 'Roggen', color: '#5b3a29' },
   { name: 'Weizengold', color: '#a16207' },
@@ -10,18 +11,28 @@ export const BRAND_PRESETS = [
   { name: 'Marine', color: '#1e3a8a' },
 ];
 
+export const ACCENT_PRESETS = [
+  { name: 'Goldgelb', color: '#e8a90c' },
+  { name: 'Honig', color: '#d97706' },
+  { name: 'Weizen', color: '#d4b26a' },
+  { name: 'Creme', color: '#e9d8b4' },
+];
+
 export const appName = (name: string | null | undefined) => name?.trim() || 'Pausenplaner';
 
 /** Firmenfarbe, Titel und Browser-Farbe aus den Einstellungen anwenden. */
 export function useApplyBranding() {
   const color = useDB((s) => s.settings.brand_color);
+  const accent = useDB((s) => s.settings.brand_accent);
   const name = useDB((s) => s.settings.brand_name);
   useEffect(() => {
-    const c = /^#[0-9a-f]{6}$/i.test(color ?? '') ? color! : '#8a3b12';
+    const hex = (v: string | null | undefined, d: string) => (/^#[0-9a-f]{6}$/i.test(v ?? '') ? v! : d);
+    const c = hex(color, '#6b4226');
     document.documentElement.style.setProperty('--brand', c);
+    document.documentElement.style.setProperty('--accent', hex(accent, '#e8a90c'));
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
     document.title = name?.trim() ? `Pausenplan · ${name.trim()}` : 'Pausenplaner';
-  }, [color, name]);
+  }, [color, accent, name]);
 }
 
 export function BrandLogo({ className = 'h-9 w-9' }: { className?: string }) {

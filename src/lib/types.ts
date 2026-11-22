@@ -36,6 +36,7 @@ export interface Settings {
   brand_name?: string | null;
   brand_logo?: string | null;
   brand_color?: string | null;
+  brand_accent?: string | null;
   updated_at: string;
 }
 
@@ -127,9 +128,11 @@ export const DEFAULT_SETTINGS: Settings = {
   short_shift_block_minutes: 15,
   count_unstarted_as_taken: false,
   timezone: 'Europe/Berlin',
-  brand_name: '',
+  // Standard-Name kommt aus der .env (VITE_BRAND_NAME), damit er nicht im Code steht
+  brand_name: (import.meta.env?.VITE_BRAND_NAME as string | undefined) ?? '',
   brand_logo: null,
-  brand_color: '#8a3b12',
+  brand_color: '#6b4226',
+  brand_accent: '#e8a90c',
   updated_at: new Date(0).toISOString(),
 };
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ImagePlus, Save, Trash2 } from 'lucide-react';
-import { BRAND_PRESETS, logoToDataUrl } from '../../lib/branding';
+import { ACCENT_PRESETS, BRAND_PRESETS, logoToDataUrl } from '../../lib/branding';
 import { useDB } from '../../store/db';
 import { saveSettings } from '../../store/actions';
 import type { Settings } from '../../lib/types';
@@ -83,15 +83,35 @@ export function SettingsView() {
               Eigene Farbe
             </label>
           </div>
-          <span className="mt-1 block text-xs text-stone-500">Tipp: eine eher dunkle Farbe wählen, damit weiße Schrift auf Knöpfen gut lesbar bleibt.</span>
+          <span className="mt-1 block text-xs text-stone-500">Für Knöpfe und Überschriften. Tipp: eine eher dunkle Farbe wählen, damit weiße Schrift gut lesbar bleibt.</span>
+        </div>
+        <div>
+          <span className="mb-1 block text-sm font-semibold text-stone-700">Akzentfarbe</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {ACCENT_PRESETS.map((p) => (
+              <button
+                key={p.color}
+                onClick={() => set({ brand_accent: p.color })}
+                className={`flex min-h-12 items-center gap-2 rounded-xl border-2 bg-white px-3 text-sm font-semibold ${f.brand_accent?.toLowerCase() === p.color ? 'border-stone-800' : 'border-stone-200'}`}
+              >
+                <span className="h-6 w-6 rounded-full" style={{ background: p.color }} />
+                {p.name}
+              </button>
+            ))}
+            <label className="flex min-h-12 items-center gap-2 rounded-xl border-2 border-stone-200 bg-white px-3 text-sm font-semibold">
+              <input type="color" className="h-7 w-9 cursor-pointer rounded border-0 bg-transparent p-0" value={f.brand_accent ?? '#e8a90c'} onChange={(e) => set({ brand_accent: e.target.value })} aria-label="Eigene Akzentfarbe wählen" />
+              Eigene Farbe
+            </label>
+          </div>
+          <span className="mt-1 block text-xs text-stone-500">Für Markierungen: Leiste oben, aktiver Reiter, „heute“. Eine helle, kräftige Farbe passt am besten.</span>
         </div>
         <div className="rounded-xl bg-stone-50 p-3 ring-1 ring-stone-200">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Vorschau</div>
-          <div className="flex flex-wrap items-center gap-3" style={{ ['--brand' as string]: f.brand_color ?? '#8a3b12' }}>
+          <div className="flex flex-wrap items-center gap-3 border-t-4 border-accent-500 pt-3" style={{ ['--brand' as string]: f.brand_color ?? '#6b4226', ['--accent' as string]: f.brand_accent ?? '#e8a90c' }}>
             {f.brand_logo ? <img src={f.brand_logo} alt="" className="h-10 w-10 rounded-lg object-contain" /> : <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="h-10 w-10" />}
             <span className="font-display text-lg font-bold">{f.brand_name?.trim() || 'Pausenplaner'}</span>
             <span className="rounded-xl bg-brand-700 px-4 py-2 font-semibold text-white">Pausen automatisch planen</span>
-            <span className="rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-700">heute</span>
+            <span className="rounded-full bg-accent-200 px-3 py-1 text-xs font-semibold text-brand-800">heute</span>
           </div>
         </div>
       </section>

@@ -71,6 +71,8 @@ cp .env.example .env
 VITE_SUPABASE_URL=https://<projekt>.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon public key>
 ```
+Mit `VITE_BRAND_NAME` steht der Name der Bäckerei von Anfang an in der App. Später lässt er sich unter Einstellungen → Darstellung ändern, dort auch Logo, Hauptfarbe (Standard Braun) und Akzentfarbe (Standard Goldgelb).
+
 Ohne `.env` startet die App im **lokalen Modus**: Die Rolle wählt man beim Start, alle Daten bleiben auf dem Gerät. Echtzeit-Sync gibt es dann nicht. Gut zum Ausprobieren.
 
 ### 4. Lokal starten & testen

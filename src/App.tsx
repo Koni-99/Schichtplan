@@ -70,7 +70,7 @@ export default function App() {
 
   return (
     <div className="flex min-h-full flex-col bg-stone-50 text-stone-900">
-      <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-stone-200 border-t-4 border-t-accent-500 bg-white/95 backdrop-blur">
         <div className="flex items-center gap-3 px-3 py-2 sm:px-5">
           <BrandLogo className="h-10 w-10" />
           <div className="mr-auto min-w-0 leading-tight">
@@ -102,7 +102,7 @@ export default function App() {
               <button
                 key={n.id}
                 onClick={() => setView(n.id)}
-                className={`relative flex min-h-12 shrink-0 items-center gap-2 border-b-[3px] px-4 font-semibold ${view === n.id ? 'border-brand-700 text-brand-700' : 'border-transparent text-stone-500 hover:text-stone-800'}`}
+                className={`relative flex min-h-12 shrink-0 items-center gap-2 border-b-[3px] px-4 font-semibold ${view === n.id ? 'border-accent-500 text-brand-700' : 'border-transparent text-stone-500 hover:text-stone-800'}`}
               >
                 <n.icon size={18} />
                 {n.label}
