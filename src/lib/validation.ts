@@ -83,6 +83,9 @@ export function validatePlan(shifts: ShiftEntry[], pauses: PauseBlock[], employe
           push(res.byBlock, p.id, { severity: 'warn', text: `Abstand zu Block ${own[i - 1].block_no} unter ${cfg.min_between_blocks_min / 60} Std.` });
         }
       }
+      if (cfg.latest_pause_start != null && p.start_min > cfg.latest_pause_start && p.status === 'open') {
+        push(res.byBlock, p.id, { severity: 'warn', text: `Startet nach ${fmtMin(cfg.latest_pause_start)} (letzte Pausenzeit)` });
+      }
       if (i === own.length - 1 && span.to > win.end - cfg.min_before_end_min) {
         push(res.byBlock, p.id, { severity: 'warn', text: `Später als ${cfg.min_before_end_min / 60} Std. vor Schichtende` });
       }

@@ -204,6 +204,8 @@ function placeShift(slots: Slot[], win: { start: number; end: number }, occ: Occ
       hi = Math.min(hi, (prevEnd ?? win.start) + MAX_STRETCH_MIN);
       if (i === n - 1) lo = Math.max(lo, win.end - MAX_STRETCH_MIN - s.duration);
     }
+    // Betriebsregel: letzte Pause startet spätestens um … (z. B. 15:30)
+    if (cfg.latest_pause_start != null && lv.capacity) hi = Math.min(hi, cfg.latest_pause_start);
     if (hi < lo) return false;
 
     const ideal = idealStart(win, i, n, s.duration);

@@ -143,6 +143,9 @@ export function SettingsView() {
           <Field label="Mindestabstand zwischen Blöcken"><input {...hours('min_between_blocks_min')} /></Field>
           <Field label="Letzter Block spätestens vor Schichtende"><input {...hours('min_before_end_min')} /></Field>
         </div>
+        <Field label="Letzte Pause startet spätestens um" hint="Leer lassen = keine feste Grenze. Danach werden keine Pausen mehr eingeplant.">
+          <TimeInput value={f.latest_pause_start ?? null} onChange={(m) => set({ latest_pause_start: m })} aria-label="Letzte Pause spätestens um" />
+        </Field>
       </section>
 
       <section className="space-y-4 rounded-2xl bg-white p-4 ring-1 ring-stone-200">

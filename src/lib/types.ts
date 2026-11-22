@@ -25,6 +25,8 @@ export interface Settings {
   min_after_start_min: number;
   min_between_blocks_min: number;
   min_before_end_min: number;
+  /** Letzte Pause startet spätestens um (Minuten), null = keine Grenze */
+  latest_pause_start?: Minutes | null;
   default_block_count: number;
   default_block_minutes: number;
   short_shift_threshold_min: number;
@@ -121,6 +123,7 @@ export const DEFAULT_SETTINGS: Settings = {
   min_after_start_min: 90,
   min_between_blocks_min: 90,
   min_before_end_min: 60,
+  latest_pause_start: 15 * 60 + 30,
   default_block_count: 2,
   default_block_minutes: 30,
   short_shift_threshold_min: 360,
