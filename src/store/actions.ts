@@ -4,6 +4,7 @@ import type { DailyPlan, Employee, Minutes, PauseBlock, Settings, ShiftEntry, Sh
 import { isNotWorking, SHIFT_STATUS_LABEL } from '../lib/types';
 import { fmtMin, nameKey, nowMinutes, todayISO, uid } from '../lib/time';
 import { schedulePauses } from '../lib/scheduler';
+import { pauseGrid } from '../lib/pauseRules';
 import { computeActualPause, diffPlan, planHasDeviations } from '../lib/diff';
 
 const nowIso = () => new Date().toISOString();
@@ -204,6 +205,13 @@ function updatePause(id: string, patch: Partial<PauseBlock>, label: string) {
   const p = useDB.getState().pauses[id];
   if (!p) return;
   commit([{ table: 'pause_blocks', row: { ...p, ...patch } }], { label, planId: p.plan_id });
+}
+
+/** Nächste/vorherige Rasterzeit (z. B. 10:15 → 10:30 bzw. 10:00). */
+export function stepTime(start: Minutes, dir: 1 | -1): Minutes {
+  const g = pauseGrid(useDB.getState().settings);
+  const snapped = dir > 0 ? Math.floor(start / g) * g + g : Math.ceil(start / g) * g - g;
+  return snapped;
 }
 
 export function movePause(id: string, start: Minutes) {

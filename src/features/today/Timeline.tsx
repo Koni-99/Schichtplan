@@ -3,7 +3,8 @@ import { AlertTriangle, StickyNote, UserPlus } from 'lucide-react';
 import type { PauseBlock, ShiftEntry } from '../../lib/types';
 import { SHIFT_STATUS_LABEL } from '../../lib/types';
 import type { PlanIssues } from '../../lib/validation';
-import { shiftWindow, blockSpan } from '../../lib/pauseRules';
+import { shiftWindow, blockSpan, pauseGrid } from '../../lib/pauseRules';
+import { useDB } from '../../store/db';
 import { fmtMin, nowMinutes } from '../../lib/time';
 import { movePause } from '../../store/actions';
 import { pauseClasses, STATUS_TONE } from './styles';
@@ -20,7 +21,6 @@ interface Props {
   onOpenPause: (id: string) => void;
 }
 
-const SNAP = 5;
 /** Zeilenhöhe wächst mit der eingestellten Schriftgröße (4rem). */
 const rowHeight = () => Math.round(4 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16));
 
@@ -179,7 +179,8 @@ function PauseBar({ p, x, ppm, rowH: ROW_H, issues, readOnly, now, onOpen }: { p
   const [drag, setDrag] = useState<{ startX: number; delta: number; moved: boolean } | null>(null);
   const draggable = !readOnly && p.status === 'open';
   const span = blockSpan(p, now);
-  const deltaMin = drag ? Math.round(drag.delta / ppm / SNAP) * SNAP : 0;
+  const SNAP = pauseGrid(useDB.getState().settings);
+  const deltaMin = drag ? Math.round((p.start_min + drag.delta / ppm) / SNAP) * SNAP - p.start_min : 0;
   const start = span.from + deltaMin;
   const w = Math.max(ROW_H * 0.5, (span.to - span.from) * ppm);
   const err = issues.some((i) => i.severity === 'error');

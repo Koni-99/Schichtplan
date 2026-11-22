@@ -1,4 +1,4 @@
-import { blockSpan, isActiveBlock, longestStretch, MAX_STRETCH_MIN, requiredPauseMinutes, shiftWindow } from './pauseRules';
+import { blockSpan, capacityArray, isActiveBlock, longestStretch, pauseGrid, MAX_STRETCH_MIN, requiredPauseMinutes, shiftWindow } from './pauseRules';
 import type { Employee, PauseBlock, Settings, ShiftEntry } from './types';
 import { fmtMin } from './time';
 
@@ -28,11 +28,12 @@ export function validatePlan(shifts: ShiftEntry[], pauses: PauseBlock[], employe
 
   // Kapazität
   const occ = new Int16Array(24 * 60 + 240);
+  const cap = capacityArray(cfg, occ.length);
   const spans = active.map((p) => ({ p, ...blockSpan(p, now) }));
   for (const s of spans) for (let m = Math.max(0, s.from); m < Math.min(occ.length, s.to); m++) occ[m]++;
   let runStart = -1, runMax = 0;
   for (let m = 0; m <= occ.length; m++) {
-    const over = m < occ.length && occ[m] > cfg.max_concurrent_pauses;
+    const over = m < occ.length && occ[m] > cap[m];
     if (over) {
       if (runStart < 0) runStart = m;
       runMax = Math.max(runMax, occ[m]);
@@ -43,10 +44,12 @@ export function validatePlan(shifts: ShiftEntry[], pauses: PauseBlock[], employe
     }
   }
   for (const s of spans) {
-    let mx = 0;
-    for (let m = Math.max(0, s.from); m < Math.min(occ.length, s.to); m++) mx = Math.max(mx, occ[m]);
-    if (mx > cfg.max_concurrent_pauses) {
-      push(res.byBlock, s.p.id, { severity: 'error', text: `${mx} gleichzeitig in Pause (max. ${cfg.max_concurrent_pauses})` });
+    let mx = 0, limit = Infinity;
+    for (let m = Math.max(0, s.from); m < Math.min(occ.length, s.to); m++) {
+      if (occ[m] > cap[m] && occ[m] - cap[m] >= mx - limit) { mx = occ[m]; limit = cap[m]; }
+    }
+    if (mx > limit) {
+      push(res.byBlock, s.p.id, { severity: 'error', text: `${mx} gleichzeitig in Pause (max. ${limit})` });
     }
   }
 
@@ -82,6 +85,10 @@ export function validatePlan(shifts: ShiftEntry[], pauses: PauseBlock[], employe
         if (p.start_min - prev.to < cfg.min_between_blocks_min) {
           push(res.byBlock, p.id, { severity: 'warn', text: `Abstand zu Block ${own[i - 1].block_no} unter ${cfg.min_between_blocks_min / 60} Std.` });
         }
+      }
+      const grid = pauseGrid(cfg);
+      if (grid > 5 && p.status === 'open' && p.start_min % grid !== 0) {
+        push(res.byBlock, p.id, { severity: 'warn', text: grid === 30 ? 'Beginnt nicht zur vollen oder halben Stunde' : `Beginnt nicht im ${grid}-Minuten-Raster` });
       }
       if (cfg.latest_pause_start != null && p.start_min > cfg.latest_pause_start && p.status === 'open') {
         push(res.byBlock, p.id, { severity: 'warn', text: `Startet nach ${fmtMin(cfg.latest_pause_start)} (letzte Pausenzeit)` });

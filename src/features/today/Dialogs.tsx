@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeftRight, Ban, Check, Clock, Minus, Play, Plus, RotateCcw, Send, Square, Trash2 } from 'lucide-react';
 import { useDB } from '../../store/db';
 import {
-  addPauseBlock, addSpringer, removeFromPlan, cancelPause, closePlan, endPause, movePause, removeShift, resetPause, setActualTimes,
+  addPauseBlock, addSpringer, removeFromPlan, stepTime, cancelPause, closePlan, endPause, movePause, removeShift, resetPause, setActualTimes,
   setNote, setPauseActual, setPauseDuration, setShiftStatus, startPause, swapShifts,
 } from '../../store/actions';
 import type { PauseBlock, ShiftEntry, ShiftStatus } from '../../lib/types';
@@ -10,7 +10,7 @@ import { useAuth } from '../../store/auth';
 import { SHIFT_STATUS_LABEL } from '../../lib/types';
 import type { PlanIssues } from '../../lib/validation';
 import { fmtCountdown, fmtMin, minutesBetween, nowMinutes } from '../../lib/time';
-import { shiftWindow } from '../../lib/pauseRules';
+import { pauseGrid, shiftWindow } from '../../lib/pauseRules';
 import { computeActualPause, diffPlan, planHasDeviations } from '../../lib/diff';
 import { Badge, Button, confirmDialog, Field, inputCls, Modal, TimeInput, toast, useNow } from '../../components/ui';
 import { PAUSE_STATUS_LABEL } from './styles';
@@ -90,8 +90,8 @@ export function PauseEditor({ id, issues, readOnly, onClose }: { id: string | nu
               <div className="space-y-2">
                 <div className="text-sm font-semibold text-stone-700">Verschieben</div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button icon={<Minus size={18} />} onClick={() => movePause(p.id, p.start_min - 15)}>15 Min.</Button>
-                  <Button icon={<Plus size={18} />} onClick={() => movePause(p.id, p.start_min + 15)}>15 Min.</Button>
+                  <Button icon={<Minus size={18} />} onClick={() => movePause(p.id, stepTime(p.start_min, -1))}>{pauseGrid(useDB.getState().settings)} Min.</Button>
+                  <Button icon={<Plus size={18} />} onClick={() => movePause(p.id, stepTime(p.start_min, 1))}>{pauseGrid(useDB.getState().settings)} Min.</Button>
                   <span className="ml-2 text-sm text-stone-600">Uhrzeit:</span>
                   <TimeInput value={p.start_min} onChange={(m) => m != null && movePause(p.id, m)} aria-label="Startzeit wählen" />
                 </div>

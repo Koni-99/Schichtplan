@@ -134,6 +134,29 @@ export function SettingsView() {
       <section className="space-y-4 rounded-2xl bg-white p-4 ring-1 ring-stone-200">
         <h2 className="text-lg font-bold">Kapazität</h2>
         <Field label="Maximal gleichzeitig in Pause"><input {...num('max_concurrent_pauses', 1, 20)} /></Field>
+        <div className="space-y-2">
+          <span className="block text-sm font-semibold text-stone-700">Abweichende Grenzen ab Uhrzeit</span>
+          {(f.capacity_rules ?? []).map((r, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <span className="text-sm">ab</span>
+              <TimeInput value={r.from} onChange={(m) => m != null && set({ capacity_rules: (f.capacity_rules ?? []).map((x, j) => (j === i ? { ...x, from: m } : x)) })} aria-label="Ab Uhrzeit" />
+              <span className="text-sm">max.</span>
+              <input type="number" min={0} max={20} className={`${inputCls} !w-20 text-center`} value={r.max} onChange={(e) => set({ capacity_rules: (f.capacity_rules ?? []).map((x, j) => (j === i ? { ...x, max: Math.max(0, Number(e.target.value)) } : x)) })} aria-label="Maximal gleichzeitig" />
+              <span className="text-sm">gleichzeitig</span>
+              <Button variant="ghost" icon={<Trash2 size={18} />} onClick={() => set({ capacity_rules: (f.capacity_rules ?? []).filter((_, j) => j !== i) })} aria-label="Grenze entfernen" />
+            </div>
+          ))}
+          <Button size="sm" onClick={() => set({ capacity_rules: [...(f.capacity_rules ?? []), { from: 14 * 60 + 30, max: Math.max(1, f.max_concurrent_pauses - 1) }] })}>+ Grenze ab Uhrzeit</Button>
+          <span className="block text-xs text-stone-500">Beispiel: ab 14:30 max. 2. Gilt bis zur nächsten Grenze bzw. bis Tagesende.</span>
+        </div>
+        <div>
+          <span className="mb-1 block text-sm font-semibold text-stone-700">Pausen beginnen</span>
+          <div className="flex flex-wrap gap-2">
+            {[[30, 'zur vollen oder halben Stunde'], [15, 'zur Viertelstunde'], [5, 'flexibel (5-Min.-Schritte)']].map(([g, l]) => (
+              <Button key={g} variant={(f.pause_grid_min ?? 5) === g ? 'primary' : 'secondary'} onClick={() => set({ pause_grid_min: g as number })}>{l}</Button>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="space-y-4 rounded-2xl bg-white p-4 ring-1 ring-stone-200">

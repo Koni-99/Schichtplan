@@ -3,12 +3,14 @@ import { schedulePauses } from '../scheduler';
 import { validatePlan } from '../validation';
 import { DEFAULT_SETTINGS, type PauseBlock, type ShiftEntry } from '../types';
 import { fmtMin } from '../time';
+import { capacityAt } from '../pauseRules';
 
 /**
  * Filialtag 05:30–19:00 mit 14 Mitarbeitern, Schichten à 9 Std. (8 Std. Arbeit + 2 × 30 Min. Pause):
  * 05:30 zwei Öffner, 06:30 eine Person, 07:00 und 07:30 je eine (bis 08:00 max. 5),
  * 08:00 zwei, 08:30 eine, Spätschicht ab 09:30/10:00, 5 bleiben bis 19:00 zum Putzen.
- * Letzte Pause startet spätestens 15:30, max. 4 gleichzeitig.
+ * Pausen nur zur vollen/halben Stunde, letzte Pause spätestens 15:30,
+ * max. 3 gleichzeitig, ab 14:30 max. 2, um 15:30 möglichst nur 1.
  */
 const t = (s: string) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
 export const FILIALTAG_14: [string, string, string][] = [
@@ -21,7 +23,7 @@ export const FILIALTAG_14: [string, string, string][] = [
   ['MA 10', '10:00', '19:00'], ['MA 11', '10:00', '19:00'], ['MA 12', '10:00', '19:00'], ['MA 13', '10:00', '19:00'], ['MA 14', '10:00', '19:00'],
 ];
 
-describe('Filialtag 14 MA, 05:30–19:00, 9-Std.-Schichten, letzte Pause 15:30', () => {
+describe('Filialtag 14 MA, 05:30–19:00, 9-Std.-Schichten, Raster :00/:30, max. 3 bzw. 2 ab 14:30', () => {
   const shifts: ShiftEntry[] = FILIALTAG_14.map(([n, a, e], i) => ({
     id: `s${i}`, plan_id: 'p', employee_id: null, employee_name: n, planned_start_min: t(a), planned_end_min: t(e), actual_start_min: null, actual_end_min: null,
     planned_pause_min: 0, actual_pause_min: null, status: 'present', is_manual: false, note: '', sort_order: i, created_at: '', updated_at: '', deleted_at: null,
@@ -43,7 +45,14 @@ describe('Filialtag 14 MA, 05:30–19:00, 9-Std.-Schichten, letzte Pause 15:30',
     expect(v.total).toBe(0);
     expect(blocks).toHaveLength(28);
     expect(Math.max(...blocks.map((b) => b.start_min))).toBeLessThanOrEqual(t('15:30'));
-    expect(max).toBeLessThanOrEqual(4);
+    for (let m = 0; m < 1440; m++) {
+      const n = blocks.filter((b) => m >= b.start_min && m < b.start_min + b.planned_duration_min).length;
+      expect(n, `um ${fmtMin(m)}`).toBeLessThanOrEqual(capacityAt(DEFAULT_SETTINGS, m));
+    }
+    expect(blocks.every((b) => b.start_min % 30 === 0)).toBe(true);
+    const at1530 = blocks.filter((b) => b.start_min === t('15:30')).length;
+    console.log('Pausen um 15:30:', at1530);
+    expect(at1530).toBeLessThanOrEqual(2);
     // Besetzung: bis 08:00 höchstens 5 Personen da, ab 18:30 genau 5
     const present = (m: number) => shifts.filter((s) => m >= s.planned_start_min! && m < s.planned_end_min!).length;
     expect(present(t('07:59'))).toBeLessThanOrEqual(5);

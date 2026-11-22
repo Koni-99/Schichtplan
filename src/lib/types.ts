@@ -20,6 +20,10 @@ export interface Row {
 export interface Settings {
   id: 1;
   max_concurrent_pauses: number;
+  /** abweichende Grenzen ab Uhrzeit, z. B. [{ from: 870, max: 2 }] = ab 14:30 max. 2 */
+  capacity_rules?: { from: Minutes; max: number }[] | null;
+  /** Pausen beginnen nur in diesem Raster (30 = :00/:30) */
+  pause_grid_min?: number | null;
   auto_close_time: Minutes;
   auto_close_enabled: boolean;
   min_after_start_min: number;
@@ -117,7 +121,9 @@ export interface TableRows {
 
 export const DEFAULT_SETTINGS: Settings = {
   id: 1,
-  max_concurrent_pauses: 4,
+  max_concurrent_pauses: 3,
+  capacity_rules: [{ from: 14 * 60 + 30, max: 2 }],
+  pause_grid_min: 30,
   auto_close_time: 19 * 60 + 30,
   auto_close_enabled: true,
   min_after_start_min: 90,

@@ -67,6 +67,22 @@ export function longestStretch(win: { start: Minutes; end: Minutes }, pauses: { 
   return best;
 }
 
+/** Raster für Pausenbeginn in Minuten (z. B. 30 = nur :00 und :30). */
+export const pauseGrid = (cfg: Settings) => (cfg.pause_grid_min && cfg.pause_grid_min > 0 ? cfg.pause_grid_min : 5);
+
+/** Erlaubte gleichzeitige Pausen zu einer Uhrzeit (z. B. max. 3, ab 14:30 max. 2). */
+export function capacityAt(cfg: Settings, minute: Minutes): number {
+  let cap = cfg.max_concurrent_pauses;
+  let from = -1;
+  for (const r of cfg.capacity_rules ?? []) if (r.from <= minute && r.from > from) { from = r.from; cap = r.max; }
+  return cap;
+}
+export function capacityArray(cfg: Settings, length: number): Int16Array {
+  const a = new Int16Array(length);
+  for (let m = 0; m < length; m++) a[m] = capacityAt(cfg, m);
+  return a;
+}
+
 /** Dauer, die ein Block die Pausenkapazität belegt. */
 export function blockSpan(b: PauseBlock, now?: Date): { from: Minutes; to: Minutes } {
   if (b.status === 'done' && b.actual_duration_min != null) {

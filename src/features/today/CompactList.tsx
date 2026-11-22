@@ -4,7 +4,7 @@ import { SHIFT_STATUS_LABEL } from '../../lib/types';
 import type { PlanIssues } from '../../lib/validation';
 import { fmtCountdown, fmtMin, minutesBetween } from '../../lib/time';
 import { shiftWindow } from '../../lib/pauseRules';
-import { endPause, movePause, startPause } from '../../store/actions';
+import { endPause, movePause, startPause, stepTime } from '../../store/actions';
 import { Badge } from '../../components/ui';
 import { pauseClasses, PAUSE_STATUS_LABEL, STATUS_TONE } from './styles';
 
@@ -61,10 +61,10 @@ export function CompactList({ shifts, pausesByShift, issues, readOnly, now, onOp
                       </button>
                       {!readOnly && win && p.status === 'open' && (
                         <>
-                          <button aria-label="15 Minuten früher" className="flex h-12 w-12 items-center justify-center rounded-xl border border-stone-300 bg-white" onClick={() => movePause(p.id, p.start_min - 15)}>
+                          <button aria-label="Früher" className="flex h-12 w-12 items-center justify-center rounded-xl border border-stone-300 bg-white" onClick={() => movePause(p.id, stepTime(p.start_min, -1))}>
                             <Minus size={18} />
                           </button>
-                          <button aria-label="15 Minuten später" className="flex h-12 w-12 items-center justify-center rounded-xl border border-stone-300 bg-white" onClick={() => movePause(p.id, p.start_min + 15)}>
+                          <button aria-label="Später" className="flex h-12 w-12 items-center justify-center rounded-xl border border-stone-300 bg-white" onClick={() => movePause(p.id, stepTime(p.start_min, 1))}>
                             <Plus size={18} />
                           </button>
                           <button aria-label="Pause starten" className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-stone-900" onClick={() => startPause(p.id)}>

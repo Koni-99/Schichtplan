@@ -6,6 +6,7 @@ import { autoSchedule, setShiftStatus } from '../../store/actions';
 import { fmtDate, fmtMin, todayISO } from '../../lib/time';
 import { Badge, Button, toast, useNow } from '../../components/ui';
 import { usePlanData } from './usePlanData';
+import { capacityAt } from '../../lib/pauseRules';
 import { PauseNowBar } from './PauseNowBar';
 import { Timeline } from './Timeline';
 import { CompactList } from './CompactList';
@@ -92,7 +93,7 @@ export function TodayView({ onGoImport, selectedId, onSelect }: { onGoImport?: (
         })()}
       </div>
 
-      <PauseNowBar shifts={shifts} pauses={pauses} max={settings.max_concurrent_pauses} now={now} readOnly={readOnly} isToday={isToday} />
+      <PauseNowBar shifts={shifts} pauses={pauses} max={capacityAt(settings, now.getHours() * 60 + now.getMinutes())} now={now} readOnly={readOnly} isToday={isToday} />
 
       {/* Aktionen */}
       <div className="flex flex-wrap items-center gap-2">

@@ -1,4 +1,4 @@
-import { blockSpan, isActiveBlock, MAX_STRETCH_MIN, MIN_REST_BLOCK_MIN, requiredBlocks, shiftWindow, type BlockRequirement } from './pauseRules';
+import { blockSpan, capacityArray, isActiveBlock, MAX_STRETCH_MIN, MIN_REST_BLOCK_MIN, pauseGrid, requiredBlocks, shiftWindow, type BlockRequirement } from './pauseRules';
 import type { Employee, Minutes, PauseBlock, Settings, ShiftEntry } from './types';
 import { fmtMin } from './time';
 
@@ -41,13 +41,25 @@ interface Slot {
 const DAY = 24 * 60;
 
 class Occupancy {
-  private occ = new Int16Array(DAY + 240);
+  occ = new Int16Array(DAY + 240);
+  constructor(private cap: Int16Array) {}
   add(from: number, to: number, d = 1) {
     for (let m = Math.max(0, Math.floor(from)); m < Math.min(this.occ.length, Math.ceil(to)); m++) this.occ[m] += d;
   }
   max(from: number, to: number): number {
     let mx = 0;
     for (let m = Math.max(0, Math.floor(from)); m < Math.min(this.occ.length, Math.ceil(to)); m++) if (this.occ[m] > mx) mx = this.occ[m];
+    return mx;
+  }
+  /** passt ein weiterer Block in [from,to) unter die (zeitabhängige) Kapazitätsgrenze? */
+  fits(from: number, to: number): boolean {
+    for (let m = Math.max(0, Math.floor(from)); m < Math.min(this.occ.length, Math.ceil(to)); m++) if (this.occ[m] + 1 > this.cap[m]) return false;
+    return true;
+  }
+  /** Auslastung relativ zur Grenze (0 = leer, 1 = voll) */
+  pressure(from: number, to: number): number {
+    let mx = 0;
+    for (let m = Math.max(0, Math.floor(from)); m < Math.min(this.occ.length, Math.ceil(to)); m++) mx = Math.max(mx, (this.occ[m] + 1) / Math.max(1, this.cap[m]));
     return mx;
   }
 }
@@ -57,11 +69,10 @@ interface Level {
   spacing: boolean;
   capacity: boolean;
 }
-const LEVELS: Level[] = [
-  { step: 15, spacing: true, capacity: true },
-  { step: 5, spacing: true, capacity: true },
-  { step: 5, spacing: false, capacity: true },
-  { step: 5, spacing: false, capacity: false },
+const levelsFor = (grid: number): Level[] => [
+  { step: grid, spacing: true, capacity: true },
+  { step: grid, spacing: false, capacity: true },
+  { step: grid, spacing: false, capacity: false },
 ];
 
 /**
@@ -71,11 +82,16 @@ const LEVELS: Level[] = [
  * 3. Flexible Blöcke werden – engste Schichten zuerst – möglichst gleichmäßig über die
  *    Schicht verteilt (Ideal: n Blöcke bei 1/(n+1), 2/(n+1) … der Schicht), unter Einhaltung von
  *    Mindestabständen und Kapazitätsgrenze. Ist das unmöglich, wird stufenweise gelockert
- *    (feineres Raster → Abstände → Kapazität) und eine Warnung ausgegeben.
+ *    (Abstände → Kapazität) und eine Warnung ausgegeben.
+ * Pausen beginnen nur im eingestellten Raster (z. B. :00/:30), die Kapazität kann
+ * zeitabhängig sein (z. B. max. 3, ab 14:30 max. 2). Zuerst wird eine gemeinsame Lösung
+ * für alle Mitarbeiter gesucht (Backtracking), erst wenn keine existiert, wird gelockert.
  */
 export function schedulePauses(input: ScheduleInput): ScheduleResult {
   const { shifts, pauses, employees, settings: cfg } = input;
-  const occ = new Occupancy();
+  const occ = new Occupancy(capacityArray(cfg, DAY + 240));
+  const grid = pauseGrid(cfg);
+  const LEVELS = levelsFor(grid);
   const result: ScheduleResult = { blocks: [], cancelIds: [], plannedPauseByShift: {}, warnings: [] };
 
   const byShift = new Map<string, PauseBlock[]>();
@@ -128,31 +144,64 @@ export function schedulePauses(input: ScheduleInput): ScheduleResult {
     jobs.push({ shift, win, slots });
   }
 
-  // engste Schichten zuerst, bei Gleichstand früherer Beginn
+  // engste Schichten zuerst (effektives Zeitfenster inkl. "letzte Pause um"), bei Gleichstand früherer Beginn
+  const effWindow = (j: Job) => {
+    const lastStart = Math.min(j.win.end - cfg.min_before_end_min, cfg.latest_pause_start != null ? cfg.latest_pause_start + 30 : Infinity);
+    return lastStart - (j.win.start + cfg.min_after_start_min);
+  };
   const flexJobs = jobs
     .filter((j) => j.slots.some((s) => !s.locked))
-    .sort((a, b) => a.win.end - a.win.start - (b.win.end - b.win.start) || a.win.start - b.win.start);
+    .sort((a, b) => effWindow(a) - effWindow(b) || a.win.start - b.win.start);
 
-  for (const job of flexJobs) {
-    let placed: Minutes[] | null = null;
-    let usedLevel = 0;
-    for (let li = 0; li < LEVELS.length && !placed; li++) {
-      placed = placeShift(job.slots, job.win, occ, cfg, LEVELS[li]);
-      usedLevel = li;
+  // 1) Gemeinsame Lösung für alle (strenge Regeln)
+  const cands = flexJobs.map((job) => enumerateShift(job.slots, job.win, cfg, LEVELS[0], 80));
+  const chosen: (Minutes[] | null)[] = flexJobs.map(() => null);
+  let budget = 250000;
+  const fitsAll = (job: Job, times: Minutes[]) => job.slots.every((sl, i) => sl.locked || occ.fits(times[i], times[i] + sl.duration));
+  const apply = (job: Job, times: Minutes[], d: number) => job.slots.forEach((sl, i) => !sl.locked && occ.add(times[i], times[i] + sl.duration, d));
+  const searchAll = (k: number): boolean => {
+    if (k === flexJobs.length) return true;
+    const job = flexJobs[k];
+    const ranked = cands[k]
+      .map((c) => ({ c, s: c.score + job.slots.reduce((a, sl, i) => a + (sl.locked ? 0 : occ.pressure(c.times[i], c.times[i] + sl.duration) * 25), 0) }))
+      .sort((a, b) => a.s - b.s);
+    for (const { c } of ranked) {
+      if (--budget < 0) return false;
+      if (!fitsAll(job, c.times)) continue;
+      apply(job, c.times, 1);
+      chosen[k] = c.times;
+      if (searchAll(k + 1)) return true;
+      apply(job, c.times, -1);
+      chosen[k] = null;
     }
-    if (!placed) {
-      // sollte durch Stufe 3 nie passieren – Fallback: gleichmäßig verteilen
-      placed = job.slots.map((s, i) => s.start ?? idealStart(job.win, i, job.slots.length, s.duration));
-      usedLevel = 3;
-    }
-    job.slots.forEach((s, i) => {
-      if (!s.locked) {
-        s.start = placed![i];
-        occ.add(s.start, s.start + s.duration);
+    return false;
+  };
+  const globalOk = cands.every((c) => c.length > 0) && searchAll(0);
+
+  if (globalOk) {
+    flexJobs.forEach((job, k) => job.slots.forEach((sl, i) => { if (!sl.locked) sl.start = chosen[k]![i]; }));
+  } else {
+    // 2) Fallback: nacheinander planen und bei Bedarf Regeln lockern (mit Warnung)
+    for (const job of flexJobs) {
+      let placed: Minutes[] | null = null;
+      let usedLevel = 0;
+      for (let li = 0; li < LEVELS.length && !placed; li++) {
+        placed = placeShift(job.slots, job.win, occ, cfg, LEVELS[li]);
+        usedLevel = li;
       }
-    });
-    if (usedLevel === 2) result.warnings.push(`${job.shift.employee_name}: Mindestabstände konnten nicht eingehalten werden.`);
-    if (usedLevel === 3) result.warnings.push(`${job.shift.employee_name}: Kapazitätsgrenze (${cfg.max_concurrent_pauses}) musste überschritten werden.`);
+      if (!placed) {
+        placed = job.slots.map((s, i) => s.start ?? idealStart(job.win, i, job.slots.length, s.duration));
+        usedLevel = 2;
+      }
+      job.slots.forEach((s, i) => {
+        if (!s.locked) {
+          s.start = placed![i];
+          occ.add(s.start, s.start + s.duration);
+        }
+      });
+      if (usedLevel === 1) result.warnings.push(`${job.shift.employee_name}: Mindestabstände konnten nicht eingehalten werden.`);
+      if (usedLevel === 2) result.warnings.push(`${job.shift.employee_name}: Pausen-Kapazität musste überschritten werden.`);
+    }
   }
 
   for (const job of jobs) {
@@ -173,12 +222,62 @@ function idealStart(win: { start: number; end: number }, i: number, n: number, d
   return Math.round(win.start + ((win.end - win.start) * (i + 1)) / (n + 1) - dur / 2);
 }
 
-function placeShift(slots: Slot[], win: { start: number; end: number }, occ: Occupancy, cfg: Settings, lv: Level): Minutes[] | null {
+/** Erlaubter Bereich [lo, hi] und Idealzeit für den i-ten Block einer Schicht. */
+function slotBounds(slots: Slot[], win: { start: number; end: number }, cfg: Settings, lv: Level, i: number, chosen: Minutes[]) {
   const n = slots.length;
-  const chosen: Minutes[] = slots.map((s) => s.start ?? NaN);
+  const s = slots[i];
   const after = lv.spacing ? cfg.min_after_start_min : 0;
   const between = lv.spacing ? cfg.min_between_blocks_min : 0;
   const before = lv.spacing ? cfg.min_before_end_min : 0;
+  const prevEnd = i > 0 ? chosen[i - 1] + slots[i - 1].duration : null;
+  let lo = prevEnd === null ? win.start + after : Math.max(win.start + after, prevEnd + between);
+  // Platz für die restlichen Blöcke lassen
+  let tail = 0;
+  for (let k = i + 1; k < n; k++) tail += slots[k].duration + between;
+  let hi = win.end - before - s.duration - tail;
+  const next = slots[i + 1];
+  if (next?.locked && next.start !== undefined) hi = Math.min(hi, next.start - between - s.duration);
+  if (!lv.spacing) {
+    lo = Math.max(win.start, prevEnd ?? win.start);
+    hi = Math.min(win.end - s.duration, next?.locked && next.start !== undefined ? next.start - s.duration : Infinity);
+  }
+  // § 4 ArbZG: nie mehr als 6 Std. am Stück ohne Ruhepause (gilt auf allen Stufen)
+  if (win.end - win.start > MAX_STRETCH_MIN && s.duration >= MIN_REST_BLOCK_MIN) {
+    hi = Math.min(hi, (prevEnd ?? win.start) + MAX_STRETCH_MIN);
+    if (i === n - 1) lo = Math.max(lo, win.end - MAX_STRETCH_MIN - s.duration);
+  }
+  // Betriebsregel: letzte Pause startet spätestens um … (z. B. 15:30)
+  if (cfg.latest_pause_start != null && lv.capacity) hi = Math.min(hi, cfg.latest_pause_start);
+  return { lo, hi, ideal: idealStart(win, i, n, s.duration) };
+}
+
+/** Bewertung einer Startzeit: nah am Ideal, die letzte erlaubte Pausenzeit möglichst meiden. */
+const timeScore = (t: number, ideal: number, cfg: Settings) => Math.abs(t - ideal) + (cfg.latest_pause_start != null && t >= cfg.latest_pause_start ? 150 : 0);
+
+/** Alle regelkonformen Startzeit-Kombinationen einer Schicht (ohne Rücksicht auf andere), beste zuerst. */
+function enumerateShift(slots: Slot[], win: { start: number; end: number }, cfg: Settings, lv: Level, limit: number): { times: Minutes[]; score: number }[] {
+  const n = slots.length;
+  const chosen: Minutes[] = slots.map((s) => s.start ?? NaN);
+  const out: { times: Minutes[]; score: number }[] = [];
+  let budget = 20000;
+  const rec = (i: number, score: number) => {
+    if (--budget < 0) return;
+    if (i === n) { out.push({ times: [...chosen], score }); return; }
+    if (slots[i].locked) return rec(i + 1, score);
+    const { lo, hi, ideal } = slotBounds(slots, win, cfg, lv, i, chosen);
+    for (let t = Math.ceil(lo / lv.step) * lv.step; t <= hi; t += lv.step) {
+      chosen[i] = t;
+      rec(i + 1, score + timeScore(t, ideal, cfg));
+    }
+    chosen[i] = NaN;
+  };
+  rec(0, 0);
+  return out.sort((a, b) => a.score - b.score).slice(0, limit);
+}
+
+function placeShift(slots: Slot[], win: { start: number; end: number }, occ: Occupancy, cfg: Settings, lv: Level): Minutes[] | null {
+  const n = slots.length;
+  const chosen: Minutes[] = slots.map((s) => s.start ?? NaN);
   let budget = 50000;
 
   const dfs = (i: number): boolean => {
@@ -186,35 +285,12 @@ function placeShift(slots: Slot[], win: { start: number; end: number }, occ: Occ
     if (i === n) return true;
     const s = slots[i];
     if (s.locked) return dfs(i + 1);
-
-    const prevEnd = i > 0 ? chosen[i - 1] + slots[i - 1].duration : null;
-    let lo = prevEnd === null ? win.start + after : Math.max(win.start + after, prevEnd + between);
-    // Platz für die restlichen Blöcke lassen
-    let tail = 0;
-    for (let k = i + 1; k < n; k++) tail += slots[k].duration + between;
-    let hi = win.end - before - s.duration - tail;
-    const next = slots[i + 1];
-    if (next?.locked && next.start !== undefined) hi = Math.min(hi, next.start - between - s.duration);
-    if (!lv.spacing) {
-      lo = Math.max(win.start, prevEnd ?? win.start);
-      hi = Math.min(win.end - s.duration, next?.locked && next.start !== undefined ? next.start - s.duration : Infinity);
-    }
-    // § 4 ArbZG: nie mehr als 6 Std. am Stück ohne Ruhepause (gilt auf allen Stufen)
-    if (win.end - win.start > MAX_STRETCH_MIN && s.duration >= MIN_REST_BLOCK_MIN) {
-      hi = Math.min(hi, (prevEnd ?? win.start) + MAX_STRETCH_MIN);
-      if (i === n - 1) lo = Math.max(lo, win.end - MAX_STRETCH_MIN - s.duration);
-    }
-    // Betriebsregel: letzte Pause startet spätestens um … (z. B. 15:30)
-    if (cfg.latest_pause_start != null && lv.capacity) hi = Math.min(hi, cfg.latest_pause_start);
+    const { lo, hi, ideal } = slotBounds(slots, win, cfg, lv, i, chosen);
     if (hi < lo) return false;
-
-    const ideal = idealStart(win, i, n, s.duration);
     const cands: { t: number; score: number }[] = [];
-    const first = Math.ceil(lo / lv.step) * lv.step;
-    for (let t = first; t <= hi; t += lv.step) {
-      const load = occ.max(t, t + s.duration);
-      if (lv.capacity && load + 1 > cfg.max_concurrent_pauses) continue;
-      cands.push({ t, score: Math.abs(t - ideal) + load * 20 });
+    for (let t = Math.ceil(lo / lv.step) * lv.step; t <= hi; t += lv.step) {
+      if (lv.capacity && !occ.fits(t, t + s.duration)) continue;
+      cands.push({ t, score: timeScore(t, ideal, cfg) + occ.max(t, t + s.duration) * 20 });
     }
     cands.sort((a, b) => a.score - b.score);
     for (const c of cands) {
