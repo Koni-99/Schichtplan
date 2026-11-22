@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, FileDown, FileSpreadsheet, StickyNote, UserPlus } from 'lucide-react';
 import { useDB } from '../../store/db';
 import { markHrRead, setHrProcessed } from '../../store/actions';
+import { useAuth } from '../../store/auth';
 import type { DailyPlan } from '../../lib/types';
 import { SHIFT_STATUS_LABEL } from '../../lib/types';
 import { diffPlan, DEVIATION_LABEL, type ShiftDiff } from '../../lib/diff';
@@ -20,10 +21,11 @@ export function ReportView({ plan, onBack }: { plan: DailyPlan; onBack: () => vo
   const diffs = useMemo(() => diffPlan(plan, shifts, pauses, settings), [plan, shifts, pauses, settings]);
   const devs = diffs.filter((d) => d.kinds.length);
 
-  // Beim Öffnen gilt der Bericht als gelesen
+  const isHr = useAuth((s) => s.role) === 'personalleitung';
+  // Beim Öffnen gilt der Bericht als gelesen – nur wenn die Personalleitung ihn öffnet
   useEffect(() => {
-    if (!plan.is_read_by_hr) markHrRead(plan.id);
-  }, [plan.id, plan.is_read_by_hr]);
+    if (isHr && !plan.is_read_by_hr) markHrRead(plan.id);
+  }, [isHr, plan.id, plan.is_read_by_hr]);
 
   const day = [{ plan, shifts, pauses }];
   const base = `Pausen_${plan.plan_date}`;
@@ -43,9 +45,13 @@ export function ReportView({ plan, onBack }: { plan: DailyPlan; onBack: () => vo
         </div>
         <Button icon={<FileSpreadsheet size={18} />} onClick={() => exportCsv(day, settings, `${base}.csv`)}>CSV / Excel</Button>
         <Button icon={<FileDown size={18} />} onClick={() => void exportPdf(day, settings, 'Pausennachweis Filiale', `${base}.pdf`)}>PDF</Button>
-        <Button variant={plan.hr_processed ? 'success' : 'primary'} icon={<CheckCircle2 size={18} />} onClick={() => setHrProcessed(plan.id, !plan.hr_processed)}>
-          {plan.hr_processed ? 'Bearbeitet' : 'Als bearbeitet markieren'}
-        </Button>
+        {isHr ? (
+          <Button variant={plan.hr_processed ? 'success' : 'primary'} icon={<CheckCircle2 size={18} />} onClick={() => setHrProcessed(plan.id, !plan.hr_processed)}>
+            {plan.hr_processed ? 'Bearbeitet' : 'Als bearbeitet markieren'}
+          </Button>
+        ) : (
+          plan.hr_processed && <span className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700"><CheckCircle2 size={16} /> Von der Personalleitung bearbeitet</span>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

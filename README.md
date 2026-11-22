@@ -24,6 +24,8 @@ supabase/migrations/001_schema.sql         Tabellen, Enums, RLS, Rollen, Realtim
 supabase/migrations/002_auto_close_cron.sql Auto-Abschluss (close_due_plans + pg_cron)
 supabase/migrations/003_remove_from_plan.sql „Aus Plan entfernen“ mit Vermerk
 supabase/migrations/004_hr_import.sql      Personalleitung lädt Pläne hoch (Rechte)
+supabase/migrations/005_store_lead_no_import.sql Filialleitung legt keine Pläne an
+src/features/week/WeekView.tsx Wochenplan (Mitarbeiter × Wochentage)
 src/lib/scheduler.ts      Pausen-Verteilungsalgorithmus
 src/lib/validation.ts     Soft-Warnings (Kapazität, Soll-Pause, Abstände)
 src/lib/diff.ts           Soll/Ist-Abgleich
@@ -41,7 +43,7 @@ samples/                  Beispiel-PDF im PEPZeit-Stil zum Testen
 ### 1. Supabase-Projekt & Tabellen
 1. Auf [supabase.com](https://supabase.com) ein Projekt anlegen (Region EU, z. B. Frankfurt).
 2. **Database → Extensions:** `pg_cron` aktivieren.
-3. **SQL Editor:** nacheinander `supabase/migrations/001_schema.sql`, `002_auto_close_cron.sql`, `003_remove_from_plan.sql` und `004_hr_import.sql` ausführen.
+3. **SQL Editor:** nacheinander `supabase/migrations/001_schema.sql`, `002_auto_close_cron.sql`, `003_remove_from_plan.sql`, `004_hr_import.sql` und `005_store_lead_no_import.sql` ausführen.
    - Damit sind Tabellen, Rechte (RLS), Realtime und der Cron-Job `pausenplaner-auto-close` angelegt. Der Job läuft alle 5 Min. und schließt um die eingestellte Uhrzeit (Europe/Berlin) ab.
    - Prüfen: `select * from cron.job;`, testweise `select public.close_due_plans();`
 
@@ -51,7 +53,7 @@ samples/                  Beispiel-PDF im PEPZeit-Stil zum Testen
 | Konto | Rolle | Zweck |
 |---|---|---|
 | `theke@…` | `filiale` | Filial-Tablet (bleibt dauerhaft angemeldet) |
-| `leitung@…` | `filialleitung` | Pausenprofile, Einstellungen, „Aus Plan entfernen“ |
+| `leitung@…` | `filialleitung` | Pausenprofile, Einstellungen, „Aus Plan entfernen“, Archiv & Export |
 | `personal@…` | `personalleitung` | Wochenplan hochladen, Archiv & PEPZeit-Abgleich (Tagespläne nur ansehen) |
 
 Neue Konten bekommen automatisch die Rolle `filiale`. Danach die Rollen im SQL Editor setzen:

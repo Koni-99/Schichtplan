@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Archive, CalendarClock, FileUp, LogOut, Settings as SettingsIcon, Users } from 'lucide-react';
+import { Archive, CalendarClock, CalendarDays, FileUp, LogOut, Settings as SettingsIcon, Users } from 'lucide-react';
 import { hydrate, useDB } from './store/db';
 import { initAuth, signOut, useAuth } from './store/auth';
 import { startSync } from './store/sync';
@@ -14,15 +14,17 @@ import { ImportView } from './features/import/ImportView';
 import { EmployeesView } from './features/employees/EmployeesView';
 import { ArchiveView } from './features/archive/ArchiveView';
 import { SettingsView } from './features/settings/SettingsView';
+import { WeekView } from './features/week/WeekView';
 import { useUnreadCount } from './features/archive/useArchive';
 
-type View = 'today' | 'import' | 'employees' | 'archive' | 'settings';
+type View = 'today' | 'week' | 'import' | 'employees' | 'archive' | 'settings';
 
 const NAV: { id: View; label: string; icon: typeof Users; roles: Role[] }[] = [
   { id: 'today', label: 'Tagesplan', icon: CalendarClock, roles: ['filiale', 'filialleitung', 'personalleitung'] },
-  { id: 'import', label: 'PDF-Import', icon: FileUp, roles: ['filialleitung', 'personalleitung'] },
+  { id: 'week', label: 'Wochenplan', icon: CalendarDays, roles: ['filiale', 'filialleitung', 'personalleitung'] },
+  { id: 'import', label: 'PDF-Import', icon: FileUp, roles: ['personalleitung'] },
   { id: 'employees', label: 'Mitarbeiter', icon: Users, roles: ['filialleitung'] },
-  { id: 'archive', label: 'Archiv', icon: Archive, roles: ['personalleitung'] },
+  { id: 'archive', label: 'Archiv & Export', icon: Archive, roles: ['filialleitung', 'personalleitung'] },
   { id: 'settings', label: 'Einstellungen', icon: SettingsIcon, roles: ['filialleitung'] },
 ];
 
@@ -32,6 +34,7 @@ export default function App() {
   const hydrated = useDB((s) => s.hydrated);
   const { ready, role, displayName } = useAuth();
   const [view, setView] = useState<View>('today');
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const unread = useUnreadCount();
 
   useEffect(() => {
@@ -89,15 +92,16 @@ export default function App() {
               >
                 <n.icon size={18} />
                 {n.label}
-                {n.id === 'archive' && unread > 0 && <span className="rounded-full bg-red-600 px-2 text-xs text-white">{unread}</span>}
+                {n.id === 'archive' && role === 'personalleitung' && unread > 0 && <span className="rounded-full bg-red-600 px-2 text-xs text-white">{unread}</span>}
               </button>
             ))}
           </nav>
         )}
       </header>
       <main className="flex-1">
-        {view === 'today' && <TodayView onGoImport={role === 'filialleitung' || role === 'personalleitung' ? () => setView('import') : undefined} />}
-        {view === 'import' && <ImportView onDone={() => setView('today')} />}
+        {view === 'today' && <TodayView selectedId={selectedPlan} onSelect={setSelectedPlan} onGoImport={role === 'personalleitung' ? () => setView('import') : undefined} />}
+        {view === 'week' && <WeekView onOpenDay={(id) => { setSelectedPlan(id); setView('today'); }} onGoImport={role === 'personalleitung' ? () => setView('import') : undefined} />}
+        {view === 'import' && <ImportView onDone={() => { setSelectedPlan(null); setView('week'); }} />}
         {view === 'employees' && <EmployeesView />}
         {view === 'archive' && <ArchiveView />}
         {view === 'settings' && <SettingsView />}

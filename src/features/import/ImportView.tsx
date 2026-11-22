@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Archive, CheckCircle2, FileText, FileUp, Loader2, Lock, Plus, ShieldCheck, Trash2, Wand2 } from 'lucide-react';
 import { parsePepzeitPdf, type WeekParseResult } from '../../lib/pdfParser';
-import { fmtDate, nameKey, todayISO, uid } from '../../lib/time';
+import { fmtDate, isoWeek, nameKey, todayISO, uid } from '../../lib/time';
 import { useDB } from '../../store/db';
 import { useAuth } from '../../store/auth';
 import { autoCloseDuePlans, closePlan, createPlanFromImport } from '../../store/actions';
@@ -15,7 +15,7 @@ type DayState = 'new' | 'past' | 'open' | 'today-open' | 'closed' | 'invalid';
 
 const SAMPLES = [
   { file: 'pepzeit-wochenplan-beispiel.pdf', label: 'Beispiel-Wochenplan ausprobieren' },
-  { file: 'pepzeit-beispiel.pdf', label: 'Beispiel-Tagesplan' },
+  { file: 'pepzeit-2-wochen-beispiel.pdf', label: 'Beispiel: 2 Wochen' },
 ];
 
 export function ImportView({ onDone }: { onDone: () => void }) {
@@ -53,12 +53,45 @@ export function ImportView({ onDone }: { onDone: () => void }) {
     return list.length ? list : [mk(today, [])];
   };
 
-  const onFile = async (file: File) => {
+  /** Eine oder mehrere PDFs (z. B. mehrere Wochen) einlesen und zu einer Tagesliste zusammenführen. */
+  const onFiles = async (files: File[]) => {
+    if (!files.length) return;
     setBusy(true);
     try {
-      const r = await parsePepzeitPdf(file);
+      const results = [];
+      for (const f of files) results.push({ name: f.name, r: await parsePepzeitPdf(f) });
+      const byDate = new Map<string, { shifts: WeekParseResult['days'][number]['shifts']; file: string }>();
+      const warnings: string[] = [];
+      const undated: WeekParseResult['undated'] = [];
+      const dupes = new Map<string, { from: string; to: string; dates: string[] }>();
+      for (const { name, r } of results) {
+        warnings.push(...r.warnings.map((w) => (files.length > 1 ? `${name}: ${w}` : w)));
+        undated.push(...r.undated);
+        for (const d of r.days) {
+          const prev = byDate.get(d.date);
+          if (prev) {
+            const k = `${prev.file}|${name}`;
+            const e = dupes.get(k) ?? { from: prev.file, to: name, dates: [] as string[] };
+            e.dates.push(d.date);
+            dupes.set(k, e);
+          }
+          byDate.set(d.date, { shifts: d.shifts, file: name });
+        }
+      }
+      for (const e of dupes.values()) {
+        const ds = e.dates.sort();
+        const range = ds.length === 1 ? fmtDate(ds[0], { day: '2-digit', month: '2-digit' }) : `${fmtDate(ds[0], { day: '2-digit', month: '2-digit' })}–${fmtDate(ds[ds.length - 1], { day: '2-digit', month: '2-digit' })}`;
+        warnings.push(`${ds.length} Tag${ds.length === 1 ? '' : 'e'} (${range}) ${ds.length === 1 ? 'steht' : 'stehen'} in „${e.from}“ und „${e.to}“ – verwendet wird „${e.to}“.`);
+      }
+      const r: WeekParseResult = {
+        layout: results.length === 1 ? results[0].r.layout : 'pages',
+        days: [...byDate.entries()].map(([date, v]) => ({ date, shifts: v.shifts })).sort((a, b) => a.date.localeCompare(b.date)),
+        undated,
+        lines: results.flatMap(({ name, r }) => (results.length > 1 ? [`===== ${name} =====`, ...r.lines] : r.lines)),
+        warnings: [...new Set(warnings)],
+      };
       setResult(r);
-      setFilename(file.name);
+      setFilename(files.map((f) => f.name).join(', '));
       const d = toEditDays(r);
       setDays(d);
       setActive(Math.max(0, d.findIndex((x) => x.include)));
@@ -118,7 +151,7 @@ export function ImportView({ onDone }: { onDone: () => void }) {
       }
       const untouched = (days ?? []).filter((d) => !willImport(d) && (stateOf(d) === 'open' || stateOf(d) === 'today-open' || stateOf(d) === 'closed')).length;
       autoCloseDuePlans();
-      toast(`${created.length} Tagesplan${created.length === 1 ? '' : 'e'} angelegt (${created.join(', ')})${untouched ? ` · ${untouched} bestehende Tage unverändert` : ''}`, 'success');
+      toast(`${created.length} Tagesplan${created.length === 1 ? '' : 'e'} angelegt (${created.length > 3 ? `${created[0]} bis ${created[created.length - 1]}` : created.join(', ')})${untouched ? ` · ${untouched} bestehende Tage unverändert` : ''}`, 'success');
       onDone();
     } catch (e) {
       toast((e as Error).message, 'error');
@@ -146,14 +179,14 @@ export function ImportView({ onDone }: { onDone: () => void }) {
           <button
             onClick={() => fileRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) void onFile(f); }}
+            onDrop={(e) => { e.preventDefault(); void onFiles([...e.dataTransfer.files].filter((f) => f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf')); }}
             className="flex w-full flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-brand-500/50 bg-white p-10 text-center hover:bg-brand-50"
           >
             {busy ? <Loader2 size={48} className="animate-spin text-brand-700" /> : <FileUp size={48} className="text-brand-700" />}
-            <span className="text-xl font-bold">{busy ? 'PDF wird ausgelesen …' : 'Wochen- oder Tagesplan auswählen'}</span>
-            <span className="text-stone-500">PDF hierher ziehen oder tippen · Tage, Namen und Schichtzeiten werden automatisch erkannt</span>
+            <span className="text-xl font-bold">{busy ? 'PDF wird ausgelesen …' : 'Wochenplan auswählen'}</span>
+            <span className="text-stone-500">Ein oder mehrere PDFs (auch mehrere Wochen auf einmal) · Tage, Namen und Schichtzeiten werden automatisch erkannt</span>
           </button>
-          <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); e.target.value = ''; }} />
+          <input ref={fileRef} type="file" multiple accept="application/pdf,.pdf" className="hidden" onChange={(e) => { void onFiles([...(e.target.files ?? [])]); e.target.value = ''; }} />
           <div className="flex items-start gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">
             <ShieldCheck size={18} className="mt-0.5 shrink-0" />
             <span>Abgeschlossene Tage und der <b>heutige Tag</b> werden beim Import <b>nie verändert</b> – Änderungen am heutigen Tag bitte direkt im Tagesplan vornehmen. Neu angelegt werden nur Tage, für die es noch keinen Plan gibt.</span>
@@ -166,7 +199,7 @@ export function ImportView({ onDone }: { onDone: () => void }) {
                 disabled={busy}
                 onClick={async () => {
                   const res = await fetch(`${import.meta.env.BASE_URL}${s.file}`);
-                  void onFile(new File([await res.blob()], s.file, { type: 'application/pdf' }));
+                  void onFiles([new File([await res.blob()], s.file, { type: 'application/pdf' })]);
                 }}
               >
                 {s.label}
@@ -201,11 +234,16 @@ export function ImportView({ onDone }: { onDone: () => void }) {
             <div className="border-b border-stone-200 bg-stone-50 px-4 py-2 text-sm font-semibold text-stone-600">Was passiert mit welchem Tag?</div>
             <div className="divide-y divide-stone-100">
               {days.map((d, i) => {
+                const kwHead = d.date && (i === 0 || !days[i - 1].date || isoWeek(days[i - 1].date).week !== isoWeek(d.date).week)
+                  ? <div className="bg-stone-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-stone-600">KW {isoWeek(d.date).week}</div>
+                  : null;
                 const st = stateOf(d);
                 const imp = willImport(d);
                 const errs = imp ? dayErrors(d) : [];
                 return (
-                  <div key={d.key} className={`flex flex-wrap items-center gap-3 px-3 py-2 ${i === active ? 'bg-brand-50' : ''}`}>
+                  <Fragment key={d.key}>
+                  {kwHead}
+                  <div className={`flex flex-wrap items-center gap-3 px-3 py-2 ${i === active ? 'bg-brand-50' : ''}`}>
                     <label className="flex min-h-12 items-center gap-3">
                       <input
                         type="checkbox"
@@ -229,6 +267,7 @@ export function ImportView({ onDone }: { onDone: () => void }) {
                     <span className="text-sm text-stone-500">{d.rows.length} MA</span>
                     <Button size="sm" variant={i === active ? 'primary' : 'secondary'} onClick={() => setActive(i)}>{i === active ? 'Angezeigt' : 'Prüfen'}</Button>
                   </div>
+                  </Fragment>
                 );
               })}
             </div>

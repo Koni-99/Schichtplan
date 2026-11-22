@@ -14,7 +14,7 @@ export function Login() {
 
   const roles: { role: Role; label: string; desc: string; icon: typeof Store }[] = [
     { role: 'filiale', label: 'Filiale / Theke', desc: 'Tagesplan, Pausen-Timer, Status & Notizen', icon: Store },
-    { role: 'filialleitung', label: 'Filialleitung', desc: 'Zusätzlich Mitarbeiter-Pausenprofile, Einstellungen, Aus Plan entfernen', icon: UserCog },
+    { role: 'filialleitung', label: 'Filialleitung', desc: 'Zusätzlich Pausenprofile, Einstellungen, Aus Plan entfernen, Export', icon: UserCog },
     { role: 'personalleitung', label: 'Personalleitung', desc: 'Wochenplan hochladen, Archiv, Soll/Ist-Abgleich, Export für PEPZeit', icon: Briefcase },
   ];
 

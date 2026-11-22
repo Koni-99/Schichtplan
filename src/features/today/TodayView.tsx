@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, ArchiveRestore, ArrowLeftRight, CalendarCheck, FileUp, LayoutList, Lock, Send, Sparkles, SquareGanttChart, Undo2, UserPlus } from 'lucide-react';
+import { AlertTriangle, ArchiveRestore, ArrowLeftRight, CalendarCheck, ChevronLeft, ChevronRight, FileUp, LayoutList, Lock, Send, Sparkles, SquareGanttChart, Undo2, UserPlus } from 'lucide-react';
 import { useDB, undoLast } from '../../store/db';
 import { useAuth } from '../../store/auth';
 import { autoSchedule, setShiftStatus } from '../../store/actions';
@@ -14,15 +14,17 @@ import { CloseDayModal, PauseEditor, ShiftPanel, SpringerModal, SwapModal } from
 type Mode = 'timeline' | 'list';
 const MODE_KEY = 'pausenplaner-view-mode';
 
-export function TodayView({ onGoImport }: { onGoImport?: () => void }) {
+export function TodayView({ onGoImport, selectedId, onSelect }: { onGoImport?: () => void; selectedId: string | null; onSelect: (id: string | null) => void }) {
   const now = useNow(1000);
   const plans = useDB((s) => s.plans);
   const undo = useDB((s) => s.undo);
   const role = useAuth((s) => s.role);
   const today = todayISO();
 
-  const openPlans = useMemo(() => Object.values(plans).filter((p) => !p.deleted_at && (p.status === 'open' || p.plan_date === today)).sort((a, b) => a.plan_date.localeCompare(b.plan_date)), [plans, today]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const allPlans = useMemo(() => Object.values(plans).filter((p) => !p.deleted_at).sort((a, b) => a.plan_date.localeCompare(b.plan_date)), [plans]);
+  const openPlans = useMemo(() => allPlans.filter((p) => p.status === 'open' || p.plan_date === today), [allPlans, today]);
+  const selected = selectedId;
+  const setSelected = onSelect;
   // heute, sonst der nächste anstehende Tag, sonst der letzte offene
   const openOnly = openPlans.filter((p) => p.status === 'open');
   const defaultPlan = openPlans.find((p) => p.plan_date === today) ?? openOnly.find((p) => p.plan_date > today) ?? openOnly.at(-1);
@@ -70,15 +72,24 @@ export function TodayView({ onGoImport }: { onGoImport?: () => void }) {
         {minutesToAuto !== null && minutesToAuto > 0 && minutesToAuto <= 60 && (
           <Badge tone="amber">Auto-Abschluss um {fmtMin(settings.auto_close_time)} (in {minutesToAuto} Min.)</Badge>
         )}
-        {openPlans.length > 1 && (
-          <div className="ml-auto flex flex-wrap gap-1">
-            {openPlans.map((p) => (
-              <button key={p.id} onClick={() => setSelected(p.id)} className={`min-h-10 rounded-lg px-3 text-sm font-semibold ${p.id === plan.id ? 'bg-brand-700 text-white' : 'bg-white text-stone-700 ring-1 ring-stone-300'}`}>
-                {fmtDate(p.plan_date, { weekday: 'short', day: '2-digit', month: '2-digit' })}
+        {allPlans.length > 1 && (() => {
+          const idx = allPlans.findIndex((p) => p.id === plan.id);
+          const prev = allPlans[idx - 1], next = allPlans[idx + 1];
+          const todayPlan = allPlans.find((p) => p.plan_date === today);
+          return (
+            <div className="ml-auto flex items-center gap-1">
+              <button aria-label="Vorheriger Tag" disabled={!prev} onClick={() => prev && setSelected(prev.id)} className="flex h-11 w-11 items-center justify-center rounded-lg bg-white ring-1 ring-stone-300 disabled:opacity-40">
+                <ChevronLeft size={20} />
               </button>
-            ))}
-          </div>
-        )}
+              {todayPlan && todayPlan.id !== plan.id && (
+                <button onClick={() => setSelected(todayPlan.id)} className="min-h-11 rounded-lg bg-white px-3 text-sm font-semibold ring-1 ring-stone-300">Heute</button>
+              )}
+              <button aria-label="Nächster Tag" disabled={!next} onClick={() => next && setSelected(next.id)} className="flex h-11 w-11 items-center justify-center rounded-lg bg-white ring-1 ring-stone-300 disabled:opacity-40">
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          );
+        })()}
       </div>
 
       <PauseNowBar shifts={shifts} pauses={pauses} max={settings.max_concurrent_pauses} now={now} readOnly={readOnly} isToday={isToday} />
