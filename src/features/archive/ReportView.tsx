@@ -96,9 +96,10 @@ function DiffRow({ d }: { d: ShiftDiff }) {
   const s = d.shift;
   const timeDev = d.kinds.includes('time');
   const pauseDev = d.kinds.includes('pause');
-  const sick = d.kinds.includes('sick') || d.kinds.includes('absent');
+  const removed = d.kinds.includes('removed');
+  const sick = d.kinds.includes('sick') || d.kinds.includes('absent') || removed;
   return (
-    <tr className={sick ? 'bg-red-50' : d.kinds.length ? 'bg-amber-50/60' : ''}>
+    <tr className={removed ? 'bg-stone-100' : sick ? 'bg-red-50' : d.kinds.length ? 'bg-amber-50/60' : ''}>
       <td className="px-3 py-2 font-semibold">
         <span className="flex items-center gap-1">
           {s.is_manual && <UserPlus size={14} className="text-violet-600" />}
@@ -106,7 +107,7 @@ function DiffRow({ d }: { d: ShiftDiff }) {
         </span>
       </td>
       <td className="px-3 py-2">
-        <Badge tone={s.status === 'present' ? 'green' : sick ? 'red' : 'amber'}>{SHIFT_STATUS_LABEL[s.status]}</Badge>
+        <Badge tone={s.status === 'present' ? 'green' : removed ? 'stone' : sick ? 'red' : 'amber'}>{SHIFT_STATUS_LABEL[s.status]}</Badge>
       </td>
       <td className="px-3 py-2 tabular-nums">
         <span className="text-stone-500">{d.sollStart != null ? `${fmtMin(d.sollStart)}–${fmtMin(d.sollEnd)}` : 'ohne Soll'}</span>
@@ -125,8 +126,16 @@ function DiffRow({ d }: { d: ShiftDiff }) {
       </td>
       <td className="px-3 py-2">
         <div className="flex flex-wrap gap-1">
-          {d.kinds.filter((k) => k !== 'note').map((k) => <Badge key={k} tone={k === 'sick' || k === 'absent' ? 'red' : k === 'manual' ? 'violet' : 'amber'}>{DEVIATION_LABEL[k]}</Badge>)}
+          {d.kinds.filter((k) => k !== 'note').map((k) => <Badge key={k} tone={k === 'sick' || k === 'absent' ? 'red' : k === 'removed' ? 'stone' : k === 'manual' ? 'violet' : 'amber'}>{DEVIATION_LABEL[k]}</Badge>)}
         </div>
+        {removed && (
+          <div className="mt-1 text-stone-700">
+            <b>Grund:</b> {s.removed_reason || '–'}
+            <span className="block text-xs text-stone-500">
+              {[s.removed_by_name, s.removed_at && new Date(s.removed_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr'].filter(Boolean).join(' · ')}
+            </span>
+          </div>
+        )}
         {s.note && <div className="mt-1 flex items-start gap-1 text-stone-700"><StickyNote size={14} className="mt-0.5 shrink-0" />{s.note}</div>}
       </td>
     </tr>

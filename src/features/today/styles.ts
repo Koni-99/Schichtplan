@@ -24,6 +24,7 @@ export const STATUS_TONE: Record<ShiftStatus, 'green' | 'red' | 'amber' | 'blue'
   present: 'green',
   sick: 'red',
   absent: 'red',
+  removed: 'stone',
   left_early: 'amber',
   came_late: 'blue',
 };

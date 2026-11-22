@@ -3,7 +3,10 @@ export type Minutes = number;
 
 export type Role = 'filiale' | 'filialleitung' | 'personalleitung';
 export type PauseModel = 'standard' | 'flexible_custom' | 'fixed' | 'none';
-export type ShiftStatus = 'present' | 'sick' | 'left_early' | 'came_late' | 'absent';
+export type ShiftStatus = 'present' | 'sick' | 'left_early' | 'came_late' | 'absent' | 'removed';
+
+/** Krank, nicht erschienen oder aus dem Plan entfernt: keine Arbeitszeit, keine Pausen. */
+export const isNotWorking = (s: ShiftStatus) => s === 'sick' || s === 'absent' || s === 'removed';
 export type PauseStatus = 'open' | 'running' | 'done' | 'cancelled';
 export type PlanStatus = 'open' | 'closed';
 export type ClosedType = 'manual' | 'auto';
@@ -71,6 +74,10 @@ export interface ShiftEntry extends Row {
   planned_pause_min: number;
   actual_pause_min: number | null;
   status: ShiftStatus;
+  /** gesetzt, wenn die Filialleitung den Eintrag aus dem Plan entfernt hat (Vermerk für die Personalleitung) */
+  removed_reason?: string | null;
+  removed_at?: string | null;
+  removed_by_name?: string | null;
   is_manual: boolean;
   note: string;
   sort_order: number;
@@ -125,6 +132,7 @@ export const SHIFT_STATUS_LABEL: Record<ShiftStatus, string> = {
   left_early: 'Früher gegangen',
   came_late: 'Später gekommen',
   absent: 'Nicht erschienen',
+  removed: 'Aus Plan entfernt',
 };
 
 export const PAUSE_MODEL_LABEL: Record<PauseModel, string> = {

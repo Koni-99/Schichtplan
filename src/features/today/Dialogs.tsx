@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeftRight, Ban, Check, Clock, Minus, Play, Plus, RotateCcw, Send, Square, Trash2 } from 'lucide-react';
 import { useDB } from '../../store/db';
 import {
-  addPauseBlock, addSpringer, cancelPause, closePlan, endPause, movePause, removeShift, resetPause, setActualTimes,
+  addPauseBlock, addSpringer, removeFromPlan, cancelPause, closePlan, endPause, movePause, removeShift, resetPause, setActualTimes,
   setNote, setPauseActual, setPauseDuration, setShiftStatus, startPause, swapShifts,
 } from '../../store/actions';
 import type { PauseBlock, ShiftEntry, ShiftStatus } from '../../lib/types';
+import { useAuth } from '../../store/auth';
 import { SHIFT_STATUS_LABEL } from '../../lib/types';
 import type { PlanIssues } from '../../lib/validation';
 import { fmtCountdown, fmtMin, minutesBetween, nowMinutes } from '../../lib/time';
@@ -142,6 +143,9 @@ export function ShiftPanel({ id, issues, readOnly, onClose, onOpenPause }: { id:
   const pauses = useMemo(() => Object.values(pausesAll).filter((p) => p.shift_entry_id === id && !p.deleted_at).sort((a, b) => a.block_no - b.block_no), [pausesAll, id]);
   const [note, setNoteText] = useState('');
   const [timeFor, setTimeFor] = useState<ShiftStatus | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [reason, setReason] = useState('');
+  const role = useAuth((s) => s.role);
   const [statusTime, setStatusTime] = useState<number | null>(null);
   useEffect(() => setNoteText(shift?.note ?? ''), [shift?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -241,6 +245,33 @@ export function ShiftPanel({ id, issues, readOnly, onClose, onOpenPause }: { id:
           <Button variant="ghost" className="text-red-700" icon={<Trash2 size={18} />} onClick={async () => { if (await confirmDialog(`${shift.employee_name} aus dem Plan entfernen?`, { confirmLabel: 'Entfernen', danger: true })) { removeShift(shift.id); onClose(); } }}>
             Springer entfernen
           </Button>
+        )}
+
+        {!readOnly && !shift.is_manual && role === 'filialleitung' && shift.status !== 'removed' && (
+          <div className="rounded-xl border border-stone-200 p-3">
+            {!removing ? (
+              <Button variant="ghost" className="text-red-700" icon={<Trash2 size={18} />} onClick={() => { setReason(''); setRemoving(true); }}>
+                Aus Plan entfernen
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <div className="font-semibold">Aus Plan entfernen – Grund für die Personalleitung</div>
+                <div className="flex flex-wrap gap-2">
+                  {['Fehler im PEPZeit-Plan', 'Doppelt eingetragen', 'Schicht entfällt', 'Falsche Filiale'].map((r) => (
+                    <Button key={r} size="sm" variant={reason === r ? 'primary' : 'secondary'} onClick={() => setReason(r)}>{r}</Button>
+                  ))}
+                </div>
+                <input className={inputCls} placeholder="oder eigenen Grund eingeben" value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Grund" />
+                <p className="text-sm text-stone-600">Der Mitarbeiter verschwindet aus Zeitstrahl und Pausenplanung, bleibt im Bericht der Personalleitung aber mit diesem Grund sichtbar. Für Krankheit oder Nichterscheinen bitte stattdessen den Status nutzen.</p>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setRemoving(false)}>Abbrechen</Button>
+                  <Button variant="danger" disabled={reason.trim().length < 3} onClick={() => { removeFromPlan(shift.id, reason); toast(`${shift.employee_name} aus Plan entfernt – Vermerk für die Personalleitung gespeichert`, 'success'); onClose(); }}>
+                    Entfernen
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </Modal>

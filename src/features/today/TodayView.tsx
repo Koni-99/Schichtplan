@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeftRight, CalendarCheck, FileUp, LayoutList, Lock, Send, Sparkles, SquareGanttChart, Undo2, UserPlus } from 'lucide-react';
+import { AlertTriangle, ArchiveRestore, ArrowLeftRight, CalendarCheck, FileUp, LayoutList, Lock, Send, Sparkles, SquareGanttChart, Undo2, UserPlus } from 'lucide-react';
 import { useDB, undoLast } from '../../store/db';
 import { useAuth } from '../../store/auth';
-import { autoSchedule } from '../../store/actions';
+import { autoSchedule, setShiftStatus } from '../../store/actions';
 import { fmtDate, fmtMin, todayISO } from '../../lib/time';
 import { Badge, Button, toast, useNow } from '../../components/ui';
 import { usePlanData } from './usePlanData';
@@ -26,7 +26,9 @@ export function TodayView({ onGoImport }: { onGoImport?: () => void }) {
   const defaultPlan = openPlans.find((p) => p.plan_date === today) ?? openPlans.filter((p) => p.status === 'open').at(-1);
   const planId = selected && plans[selected] && !plans[selected].deleted_at ? selected : defaultPlan?.id;
 
-  const { plan, shifts, pauses, pausesByShift, settings, issues } = usePlanData(planId, now);
+  const { plan, shifts: allShifts, pauses, pausesByShift, settings, issues } = usePlanData(planId, now);
+  const shifts = useMemo(() => allShifts.filter((s) => s.status !== 'removed'), [allShifts]);
+  const removed = useMemo(() => allShifts.filter((s) => s.status === 'removed'), [allShifts]);
   const [mode, setMode] = useState<Mode>(() => (localStorage.getItem(MODE_KEY) as Mode) ?? (window.innerWidth < 640 ? 'list' : 'timeline'));
   const [shiftOpen, setShiftOpen] = useState<string | null>(null);
   const [pauseOpen, setPauseOpen] = useState<string | null>(null);
@@ -126,6 +128,30 @@ export function TodayView({ onGoImport }: { onGoImport?: () => void }) {
         <Timeline shifts={shifts} pausesByShift={pausesByShift} issues={issues} isToday={isToday} readOnly={readOnly} now={now} onOpenShift={setShiftOpen} onOpenPause={setPauseOpen} />
       ) : (
         <CompactList shifts={shifts} pausesByShift={pausesByShift} issues={issues} readOnly={readOnly} now={now} onOpenShift={setShiftOpen} onOpenPause={setPauseOpen} />
+      )}
+
+      {removed.length > 0 && (
+        <details className="rounded-2xl bg-white p-3 ring-1 ring-stone-200">
+          <summary className="flex min-h-10 cursor-pointer items-center font-semibold text-stone-700">Aus Plan entfernt ({removed.length})</summary>
+          <div className="mt-2 divide-y divide-stone-100">
+            {removed.map((s) => (
+              <div key={s.id} className="flex flex-wrap items-center gap-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-stone-500 line-through">{s.employee_name}</div>
+                  <div className="text-sm text-stone-600">
+                    {s.removed_reason} · {s.removed_by_name}
+                    {s.removed_at && `, ${new Date(s.removed_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`}
+                  </div>
+                </div>
+                {!readOnly && role === 'filialleitung' && (
+                  <Button size="sm" icon={<ArchiveRestore size={16} />} onClick={() => { setShiftStatus(s.id, 'present'); toast(`${s.employee_name} wiederhergestellt`, 'success'); }}>
+                    Wiederherstellen
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
       )}
 
       <Legend />

@@ -12,7 +12,7 @@ Installierbare Web-App (PWA) zur digitalen Pausenplanung und -dokumentation. Ers
 | **Pausenregeln** | Standard 2 × 30 Min., Sondermodell (z. B. 2 × 15 / 1 × 30), feste Uhrzeiten, keine Pause. Kurzschicht < 6 Std. ohne Pause (einstellbar). Max. 4 gleichzeitig (einstellbar). Abstände 1,5 Std. / 1,5 Std. / 1 Std. (einstellbar). |
 | **Auto-Planung** | Setzt zuerst feste Zeiten, lässt „Keine Pause“ aus, verteilt dann flexible Blöcke gleichmäßig. Engste Schichten werden zuerst geplant. Kapazität und Abstände werden eingehalten. Geht das nicht, wird schrittweise gelockert und gewarnt. Laufende und erledigte Pausen bleiben unangetastet. |
 | **Tagesansicht** | Zeitstrahl mit „Jetzt“-Linie, Drag & Drop (5-Min.-Raster), ±15 Min., Uhrzeit wählen. Dazu eine Kompaktliste fürs Handy, der Kasten „Aktuell in Pause (3 / 4)“ mit Countdown, Soft-Warnings in Rot/Orange und „Rückgängig“ für die letzten 3 Aktionen. |
-| **Schnellaktionen** | Anwesend / Krank (streicht offene Pausen) / Früher gegangen / Später gekommen / Nicht erschienen. Außerdem: Ist-Zeiten, Schicht tauschen, Springer hinzufügen („Manuell ergänzt“), Notiz pro Mitarbeiter. |
+| **Schnellaktionen** | Anwesend / Krank (streicht offene Pausen) / Früher gegangen / Später gekommen / Nicht erschienen. Außerdem: Ist-Zeiten, Schicht tauschen, Springer hinzufügen („Manuell ergänzt“), Notiz pro Mitarbeiter. Die Filialleitung kann Mitarbeiter mit Pflicht-Grund „Aus Plan entfernen“; der Vermerk (Grund, Uhrzeit, Name) erscheint im Bericht der Personalleitung, Wiederherstellen ist möglich. |
 | **Tagesabschluss** | Manuell per Button oder automatisch um 19:30 Uhr (pg_cron, einstellbar). Wird gekennzeichnet als „Automatisch abgeschlossen um 19:30 Uhr“. |
 | **Personalleitung** | Banner „X neue Tagesberichte“ mit Hinweis auf Abweichungen. Archiv Jahr → Monat → KW → Tag mit Ungelesen-Badges. Soll/Ist-Diff (Arbeitszeit, Krank, Pause, Springer, Notizen). „Als bearbeitet markieren“. Export pro Tag oder KW als CSV/Excel und PDF. |
 | **Offline** | Alle Daten liegen in IndexedDB. Änderungen landen in einer Outbox und werden nachgereicht, sobald wieder Netz da ist. Realtime-Abgleich über Supabase. Konflikte: der zuletzt geschriebene Stand gewinnt (über `updated_at`). |
@@ -22,6 +22,7 @@ Installierbare Web-App (PWA) zur digitalen Pausenplanung und -dokumentation. Ers
 ```
 supabase/migrations/001_schema.sql         Tabellen, Enums, RLS, Rollen, Realtime
 supabase/migrations/002_auto_close_cron.sql Auto-Abschluss (close_due_plans + pg_cron)
+supabase/migrations/003_remove_from_plan.sql „Aus Plan entfernen“ mit Vermerk
 src/lib/scheduler.ts      Pausen-Verteilungsalgorithmus
 src/lib/validation.ts     Soft-Warnings (Kapazität, Soll-Pause, Abstände)
 src/lib/diff.ts           Soll/Ist-Abgleich
@@ -39,7 +40,7 @@ samples/                  Beispiel-PDF im PEPZeit-Stil zum Testen
 ### 1. Supabase-Projekt & Tabellen
 1. Auf [supabase.com](https://supabase.com) ein Projekt anlegen (Region EU, z. B. Frankfurt).
 2. **Database → Extensions:** `pg_cron` aktivieren.
-3. **SQL Editor:** zuerst den Inhalt von `supabase/migrations/001_schema.sql` ausführen, danach `002_auto_close_cron.sql`.
+3. **SQL Editor:** nacheinander `supabase/migrations/001_schema.sql`, `002_auto_close_cron.sql` und `003_remove_from_plan.sql` ausführen.
    - Damit sind Tabellen, Rechte (RLS), Realtime und der Cron-Job `pausenplaner-auto-close` angelegt. Der Job läuft alle 5 Min. und schließt um die eingestellte Uhrzeit (Europe/Berlin) ab.
    - Prüfen: `select * from cron.job;`, testweise `select public.close_due_plans();`
 

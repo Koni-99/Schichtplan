@@ -1,7 +1,7 @@
 import { commit, useDB, type Change } from './db';
 import { useAuth } from './auth';
 import type { DailyPlan, Employee, Minutes, PauseBlock, Settings, ShiftEntry, ShiftStatus } from '../lib/types';
-import { SHIFT_STATUS_LABEL } from '../lib/types';
+import { isNotWorking, SHIFT_STATUS_LABEL } from '../lib/types';
 import { fmtMin, nameKey, nowMinutes, todayISO, uid } from '../lib/time';
 import { schedulePauses } from '../lib/scheduler';
 import { computeActualPause, diffPlan, planHasDeviations } from '../lib/diff';
@@ -265,13 +265,13 @@ export function setShiftStatus(id: string, status: ShiftStatus, time?: Minutes) 
   const extra: Change[] = [];
   const patch: Partial<ShiftEntry> = { status };
 
-  if (status === 'sick' || status === 'absent') {
+  if (isNotWorking(status)) {
     // offene Pausen automatisch aus der Planung streichen
     own.filter((p) => p.status === 'open').forEach((p) => extra.push({ table: 'pause_blocks', row: { ...p, status: 'cancelled' } }));
     patch.actual_start_min = null;
     patch.actual_end_min = null;
   } else {
-    if (sh.status === 'sick' || sh.status === 'absent') {
+    if (isNotWorking(sh.status)) {
       own.filter((p) => p.status === 'cancelled').forEach((p) => extra.push({ table: 'pause_blocks', row: { ...p, status: 'open' } }));
     }
     if (status === 'left_early') {
@@ -285,7 +285,36 @@ export function setShiftStatus(id: string, status: ShiftStatus, time?: Minutes) 
       patch.actual_end_min = null;
     }
   }
+  if (sh.status === 'removed') {
+    patch.removed_reason = null;
+    patch.removed_at = null;
+    patch.removed_by_name = null;
+  }
   updateShift(id, patch, `${sh.employee_name}: ${SHIFT_STATUS_LABEL[status]}`, extra);
+}
+
+/**
+ * Filialleitung: Mitarbeiter aus dem Plan entfernen (z. B. Fehler im PEPZeit-PDF).
+ * Der Eintrag bleibt für die Personalleitung mit Grund, Uhrzeit und Name sichtbar.
+ */
+export function removeFromPlan(id: string, reason: string) {
+  const s = useDB.getState();
+  const sh = s.shifts[id];
+  if (!sh) return;
+  const now = new Date();
+  const extra: Change[] = planPauses(sh.plan_id, s)
+    .filter((p) => p.shift_entry_id === id && (p.status === 'open' || p.status === 'running'))
+    .map((p) =>
+      p.status === 'running' && p.actual_start_at
+        ? ({ table: 'pause_blocks', row: { ...p, status: 'done', actual_end_at: now.toISOString(), actual_duration_min: Math.max(1, Math.round((now.getTime() - new Date(p.actual_start_at).getTime()) / 60000)) } } as Change)
+        : ({ table: 'pause_blocks', row: { ...p, status: 'cancelled' } } as Change),
+    );
+  updateShift(
+    id,
+    { status: 'removed', removed_reason: reason.trim(), removed_at: now.toISOString(), removed_by_name: useAuth.getState().displayName || 'Filialleitung', actual_start_min: null, actual_end_min: null },
+    `${sh.employee_name} aus Plan entfernt`,
+    extra,
+  );
 }
 
 export function setActualTimes(id: string, start: Minutes | null, end: Minutes | null) {
@@ -383,7 +412,7 @@ export function closePlan(planId: string, type: 'manual' | 'auto') {
     return p;
   });
   const shifts = planShifts(planId, s).map((sh) => {
-    const notWorking = sh.status === 'sick' || sh.status === 'absent';
+    const notWorking = isNotWorking(sh.status);
     const frozen: ShiftEntry = { ...sh, actual_pause_min: notWorking ? 0 : computeActualPause({ ...sh, actual_pause_min: null }, pauses, s.settings, now) };
     changes.push({ table: 'shift_entries', row: frozen });
     return frozen;

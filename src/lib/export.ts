@@ -49,7 +49,7 @@ export function buildCsv(days: ReportDay[], cfg: Settings): string {
         d.istPause,
         d.sollWork,
         d.istWork,
-        d.kinds.map((k) => DEVIATION_LABEL[k]).join(', '),
+        d.summary.filter((x) => !x.startsWith('Notiz:')).join(' | ') || d.kinds.map((k) => DEVIATION_LABEL[k]).join(', '),
         d.shift.is_manual ? 'ja' : 'nein',
         d.shift.note,
         blocksText(d),
@@ -113,7 +113,8 @@ export async function exportPdf(days: ReportDay[], cfg: Settings, title: string,
       didParseCell: (data) => {
         if (data.section !== 'body') return;
         const d = diffs[data.row.index];
-        if (d.kinds.includes('sick') || d.kinds.includes('absent')) data.cell.styles.fillColor = [254, 226, 226];
+        if (d.kinds.includes('removed')) data.cell.styles.fillColor = [231, 229, 228];
+        else if (d.kinds.includes('sick') || d.kinds.includes('absent')) data.cell.styles.fillColor = [254, 226, 226];
         else if (d.kinds.length) data.cell.styles.fillColor = [255, 237, 213];
       },
       margin: { left: 12, right: 12 },

@@ -1,8 +1,8 @@
 import type { DailyPlan, PauseBlock, Settings, ShiftEntry } from './types';
-import { SHIFT_STATUS_LABEL } from './types';
+import { isNotWorking, SHIFT_STATUS_LABEL } from './types';
 import { fmtMin } from './time';
 
-export type DeviationKind = 'time' | 'sick' | 'absent' | 'pause' | 'manual' | 'note';
+export type DeviationKind = 'time' | 'sick' | 'absent' | 'removed' | 'pause' | 'manual' | 'note';
 
 export interface ShiftDiff {
   shift: ShiftEntry;
@@ -23,6 +23,7 @@ export const DEVIATION_LABEL: Record<DeviationKind, string> = {
   time: 'Arbeitszeit',
   sick: 'Krank',
   absent: 'Nicht erschienen',
+  removed: 'Aus Plan entfernt',
   pause: 'Pausenzeit',
   manual: 'Manuell ergänzt',
   note: 'Notiz',
@@ -36,14 +37,14 @@ export function computeActualPause(shift: ShiftEntry, blocks: PauseBlock[], cfg:
     .reduce((sum, b) => {
       if (b.status === 'done') return sum + (b.actual_duration_min ?? b.planned_duration_min);
       if (b.status === 'running' && b.actual_start_at) return sum + Math.round((now.getTime() - new Date(b.actual_start_at).getTime()) / 60000);
-      if (b.status === 'open' && cfg.count_unstarted_as_taken && shift.status !== 'sick' && shift.status !== 'absent') return sum + b.planned_duration_min;
+      if (b.status === 'open' && cfg.count_unstarted_as_taken && !isNotWorking(shift.status)) return sum + b.planned_duration_min;
       return sum;
     }, 0);
 }
 
 export function diffShift(shift: ShiftEntry, blocks: PauseBlock[], cfg: Settings): ShiftDiff {
   const own = blocks.filter((b) => !b.deleted_at && b.shift_entry_id === shift.id).sort((a, b) => a.block_no - b.block_no);
-  const notWorking = shift.status === 'sick' || shift.status === 'absent';
+  const notWorking = isNotWorking(shift.status);
   const sollStart = shift.planned_start_min, sollEnd = shift.planned_end_min;
   const istStart = notWorking ? null : shift.actual_start_min ?? sollStart;
   const istEnd = notWorking ? null : shift.actual_end_min ?? sollEnd;
@@ -56,6 +57,11 @@ export function diffShift(shift: ShiftEntry, blocks: PauseBlock[], cfg: Settings
   const summary: string[] = [];
   if (shift.status === 'sick') { kinds.push('sick'); summary.push('Krankmeldung'); }
   if (shift.status === 'absent') { kinds.push('absent'); summary.push('Nicht erschienen'); }
+  if (shift.status === 'removed') {
+    kinds.push('removed');
+    const when = shift.removed_at ? new Date(shift.removed_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : null;
+    summary.push(`Aus Plan entfernt${shift.removed_reason ? `: ${shift.removed_reason}` : ''}${shift.removed_by_name || when ? ` (${[shift.removed_by_name, when && `${when} Uhr`].filter(Boolean).join(', ')})` : ''}`);
+  }
   if (shift.is_manual) { kinds.push('manual'); summary.push('Manuell ergänzt (Springer/Aushilfe)'); }
   if (!notWorking && !shift.is_manual && (istStart !== sollStart || istEnd !== sollEnd)) {
     kinds.push('time');

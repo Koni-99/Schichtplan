@@ -1,4 +1,5 @@
 import type { Employee, Minutes, PauseBlock, Settings, ShiftEntry } from './types';
+import { isNotWorking } from './types';
 
 export interface BlockRequirement {
   blockNo: number;
@@ -9,7 +10,7 @@ export interface BlockRequirement {
 
 /** Effektives Arbeitszeitfenster einer Schicht (Ist vor Soll). null = keine Arbeit (krank/nicht erschienen). */
 export function shiftWindow(s: ShiftEntry): { start: Minutes; end: Minutes } | null {
-  if (s.status === 'sick' || s.status === 'absent') return null;
+  if (isNotWorking(s.status)) return null;
   const start = s.actual_start_min ?? s.planned_start_min;
   const end = s.actual_end_min ?? s.planned_end_min;
   if (start === null || end === null || end <= start) return null;
